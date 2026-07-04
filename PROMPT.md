@@ -41,6 +41,6 @@ seed 5万条审计日志；前端 Audit 页带 debounce 筛选与导出按钮；
 ## Phase 5 - 测试与交付
 
 ```
-编写 Jest+Supertest 集成测试覆盖7个必测场景；完善 docker-compose 一键启动含 migrate+seed；
-更新 README 五分钟指南和测试账号；创建 PROMPT.md。
+编写 Jest+Supertest 集成测试覆盖 11 个必测场景；修复 jest-e2e.json 为合法 JSON；
+完善 docker-compose 一键启动含 migrate+seed；README 补充在线演示链接与五分钟指南；创建 PROMPT.md。
 ```

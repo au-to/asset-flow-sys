@@ -59,6 +59,7 @@ export default function ApprovalPage() {
             <Button
               size="small"
               loading={loadingId === record.id}
+              disabled={!!loadingId}
               onClick={() =>
                 wrap(record.id, async () => {
                   await applicationsApi.withdraw(record.id);
@@ -76,6 +77,7 @@ export default function ApprovalPage() {
                 type="primary"
                 size="small"
                 loading={loadingId === `approve-${record.id}`}
+                disabled={!!loadingId}
                 onClick={() =>
                   wrap(`approve-${record.id}`, async () => {
                     await approvalsApi.approve(record.id);
@@ -89,6 +91,7 @@ export default function ApprovalPage() {
               <Button
                 danger
                 size="small"
+                disabled={!!loadingId}
                 onClick={() => {
                   setRejectId(record.id);
                   setRejectOpen(true);
@@ -103,6 +106,7 @@ export default function ApprovalPage() {
               danger
               size="small"
               loading={loadingId === `terminate-${record.id}`}
+              disabled={!!loadingId}
               onClick={() =>
                 wrap(`terminate-${record.id}`, async () => {
                   await approvalsApi.terminate(record.id);

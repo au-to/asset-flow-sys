@@ -2,9 +2,18 @@
 
 基于 React + Ant Design + NestJS + Prisma + PostgreSQL 的企业级资产流转与审批系统（EI 全栈工程师认证项目）。
 
+## 在线演示
+
+| 环境 | 地址 |
+|------|------|
+| 前端 | https://web-production-da953.up.railway.app/login |
+| API Health | 同域名 `/api/health`（Nginx 反代至后端） |
+
+测试账号：`employee_a` / `123456`（普通员工），`manager_a` / `123456`（研发部主管），`admin` / `123456`（系统管理员），`auditor` / `123456`（合规审计员）。
+
 ## 文档
 
-- [认证题目要求](全栈工程师认证题目及要求.md)
+- [认证题目要求](docs/全栈工程师认证题目及要求.md)
 - [技术架构方案](docs/architecture.md)
 - [分阶段实施计划](docs/implementation-plan.md)
 - [Railway 部署指南](docs/railway-deploy.md)
@@ -88,9 +97,10 @@ npm run dev:web
 ```bash
 # 确保数据库已启动并 seed
 docker compose -f docker-compose.dev.yml up -d
-cd apps/api && npx prisma migrate deploy && npx prisma db seed
+npm run prisma:migrate -w @asset-flow/api
+npm run prisma:seed -w @asset-flow/api
 
-# 运行 E2E 测试
+# 运行 E2E 测试（11 个场景全覆盖）
 npm run test:e2e
 ```
 

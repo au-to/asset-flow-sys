@@ -13,6 +13,8 @@ describe('Asset Flow E2E', () => {
   let employeeToken: string;
   let managerAToken: string;
   let managerBToken: string;
+  let adminToken: string;
+  let auditorToken: string;
   let pendingAppId: string;
 
   beforeAll(async () => {
@@ -39,6 +41,8 @@ describe('Asset Flow E2E', () => {
     employeeToken = await login('employee_a');
     managerAToken = await login('manager_a');
     managerBToken = await login('manager_b');
+    adminToken = await login('admin');
+    auditorToken = await login('auditor');
   });
 
   afterAll(async () => {
@@ -184,5 +188,77 @@ describe('Asset Flow E2E', () => {
 
     const statuses = [res1.status, res2.status].sort();
     expect(statuses).toEqual([201, 409]);
+  });
+
+  it('8. employee can withdraw pending application', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/api/applications')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({
+        reason: '撤回测试',
+        items: [{ category: 'ELECTRONIC_DEVICE', assetName: '耳机', quantity: 1 }],
+      });
+
+    const appId = createRes.body.data.id;
+    const withdrawRes = await request(app.getHttpServer())
+      .post(`/api/applications/${appId}/withdraw`)
+      .set('Authorization', `Bearer ${employeeToken}`);
+
+    expect(withdrawRes.status).toBe(201);
+    expect(withdrawRes.body.data.status).toBe('WITHDRAWN');
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { applicationId: appId, action: 'WITHDRAW' },
+    });
+    expect(audit?.beforeStatus).toBe('PENDING');
+    expect(audit?.afterStatus).toBe('WITHDRAWN');
+  });
+
+  it('9. admin can terminate pending application', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/api/applications')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({
+        reason: '终止测试',
+        items: [{ category: 'ELECTRONIC_DEVICE', assetName: '打印机', quantity: 1 }],
+      });
+
+    const appId = createRes.body.data.id;
+    const terminateRes = await request(app.getHttpServer())
+      .post(`/api/approvals/${appId}/terminate`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(terminateRes.status).toBe(201);
+    expect(terminateRes.body.data.status).toBe('TERMINATED');
+  });
+
+  it('10. assetKey masking in audit logs API', async () => {
+    await request(app.getHttpServer())
+      .post('/api/applications')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({
+        reason: '审计脱敏测试',
+        items: [{ category: 'SENSITIVE_DATA', assetName: '数据库只读权限', quantity: 1 }],
+      });
+
+    const res = await request(app.getHttpServer())
+      .get('/api/audit/logs?page=1&pageSize=50')
+      .set('Authorization', `Bearer ${auditorToken}`);
+
+    expect(res.status).toBe(200);
+    const maskedLog = res.body.data.list.find(
+      (log: { assetKey?: string | null }) =>
+        log.assetKey != null && /SEC-\*\*\*\*-./.test(log.assetKey),
+    );
+    expect(maskedLog).toBeTruthy();
+    expect(maskedLog.assetKey).not.toMatch(/SECRET_KEY/);
+  });
+
+  it('11. employee cannot access audit API - 403', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/audit/logs')
+      .set('Authorization', `Bearer ${employeeToken}`);
+
+    expect(res.status).toBe(403);
   });
 });

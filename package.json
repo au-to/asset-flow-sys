@@ -1,0 +1,15 @@
+{
+  "name": "asset-flow-sys",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev -w @asset-flow/api",
+    "dev:web": "npm run dev -w @asset-flow/web",
+    "build": "npm run build -w @asset-flow/shared && npm run build -w @asset-flow/api && npm run build -w @asset-flow/web",
+    "test:e2e": "npm run test:e2e -w @asset-flow/api"
+  }
+}

@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  EMPLOYEE
+  MANAGER
+  ADMIN
+  AUDITOR
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+  TERMINATED
+}
+
+enum AssetCategory {
+  FIXED_ASSET
+  ELECTRONIC_DEVICE
+  SOFTWARE_LICENSE
+  SENSITIVE_DATA
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  name      String
+  managerId String?  @map("manager_id")
+  manager   User?    @relation("DepartmentManager", fields: [managerId], references: [id])
+  users     User[]   @relation("DepartmentUsers")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedBy String?  @map("updated_by")
+
+  @@map("departments")
+}
+
+model User {
+  id           String             @id @default(uuid())
+  username     String             @unique
+  passwordHash String             @map("password_hash")
+  role         Role
+  departmentId String             @map("department_id")
+  department   Department         @relation("DepartmentUsers", fields: [departmentId], references: [id])
+  managedDepts Department[]       @relation("DepartmentManager")
+  applications AssetApplication[]
+  auditLogs    AuditLog[]
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedBy    String?            @map("updated_by")
+
+  @@map("users")
+}
+
+model AssetApplication {
+  id          String            @id @default(uuid())
+  applicantId String            @map("applicant_id")
+  applicant   User              @relation(fields: [applicantId], references: [id])
+  reason      String            @db.VarChar(100)
+  status      ApplicationStatus @default(PENDING)
+  version     Int               @default(0)
+  items       ApplicationItem[]
+  auditLogs   AuditLog[]
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  updatedBy   String?           @map("updated_by")
+
+  @@index([applicantId, status])
+  @@index([status, createdAt])
+  @@map("asset_applications")
+}
+
+model ApplicationItem {
+  id            String           @id @default(uuid())
+  applicationId String           @map("application_id")
+  application   AssetApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  category      AssetCategory
+  assetName     String           @map("asset_name")
+  quantity      Int
+  assetKey      String?          @map("asset_key")
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  @@map("application_items")
+}
+
+model AuditLog {
+  id            String             @id @default(uuid())
+  applicationId String             @map("application_id")
+  application   AssetApplication   @relation(fields: [applicationId], references: [id])
+  operatorId    String             @map("operator_id")
+  operator      User               @relation(fields: [operatorId], references: [id])
+  action        String
+  reason        String?
+  beforeStatus  ApplicationStatus? @map("before_status")
+  afterStatus   ApplicationStatus  @map("after_status")
+  metadata      Json?
+  createdAt     DateTime           @default(now()) @map("created_at")
+
+  @@index([applicationId])
+  @@index([operatorId])
+  @@index([createdAt])
+  @@index([afterStatus, createdAt])
+  @@map("sys_audit_log")
+}

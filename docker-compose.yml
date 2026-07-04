@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: assetflow
+      POSTGRES_PASSWORD: assetflow
+      POSTGRES_DB: asset_flow
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U assetflow -d asset_flow']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    environment:
+      DATABASE_URL: postgresql://assetflow:assetflow@db:5432/asset_flow?schema=public
+      JWT_SECRET: asset-flow-prod-secret
+      PORT: 3001
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '3001:3001'
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    depends_on:
+      - api
+    ports:
+      - '80:80'
+
+volumes:
+  pgdata:

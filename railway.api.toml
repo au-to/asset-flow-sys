@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "chmod +x scripts/railway-build-api.sh && ./scripts/railway-build-api.sh"
+buildCommand = "chmod +x scripts/railway-install-deps.sh scripts/railway-build-api.sh && ./scripts/railway-build-api.sh"
 
 [deploy]
 preDeployCommand = "/bin/sh ./scripts/railway-predeploy-api.sh"

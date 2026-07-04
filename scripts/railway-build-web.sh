@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+. ./scripts/railway-install-deps.sh
+
 if [ -z "$VITE_API_BASE_URL" ]; then
   echo "Warning: VITE_API_BASE_URL is not set. Frontend will use relative /api path."
 fi

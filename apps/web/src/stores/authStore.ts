@@ -8,13 +8,19 @@ interface AuthState {
   isAuthenticated: boolean;
   setAuth: (token: string, user: UserInfo) => void;
   clearAuth: () => void;
-  hydrate: () => void;
+}
+
+function readStoredAuth(): Pick<AuthState, 'token' | 'user' | 'isAuthenticated'> {
+  const token = localStorage.getItem('token');
+  const userStr = localStorage.getItem('user');
+  if (token && userStr) {
+    return { token, user: JSON.parse(userStr) as UserInfo, isAuthenticated: true };
+  }
+  return { token: null, user: null, isAuthenticated: false };
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  token: null,
-  user: null,
-  isAuthenticated: false,
+  ...readStoredAuth(),
   setAuth: (token, user) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
@@ -24,13 +30,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     set({ token: null, user: null, isAuthenticated: false });
-  },
-  hydrate: () => {
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
-    if (token && userStr) {
-      set({ token, user: JSON.parse(userStr) as UserInfo, isAuthenticated: true });
-    }
   },
 }));
 

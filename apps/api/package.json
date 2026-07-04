@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "nest build",
+    "build": "node ../../node_modules/@nestjs/cli/bin/nest.js build",
     "prestart:dev": "npm run build -w @asset-flow/shared",
     "start": "nest start",
     "start:dev": "nest start --watch",

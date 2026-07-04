@@ -1,7 +1,11 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+ENV NPM_CONFIG_PRODUCTION=false
+ENV NODE_ENV=development
+
 COPY package.json package-lock.json ./
+COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
 RUN npm ci
@@ -12,8 +16,11 @@ COPY apps/web ./apps/web
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
-RUN npm run build -w @asset-flow/shared
-RUN npm run build -w @asset-flow/web
+RUN node_modules/.bin/tsc -p packages/shared
+RUN node_modules/.bin/tsc -p apps/web
+WORKDIR /app/apps/web
+RUN node ../../node_modules/vite/bin/vite.js build
+WORKDIR /app
 
 FROM node:20-alpine AS runner
 WORKDIR /app

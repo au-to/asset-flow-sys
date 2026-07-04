@@ -1,18 +1,23 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Railway 构建环境可能注入 NODE_ENV=production，需显式关闭以免漏装 workspace 依赖
+ENV NPM_CONFIG_PRODUCTION=false
+ENV NODE_ENV=development
+
 COPY package.json package-lock.json ./
 COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
 RUN npm ci
 
 COPY packages/shared ./packages/shared
 COPY apps/api ./apps/api
 
-RUN npm run build -w @asset-flow/shared
+RUN node_modules/.bin/tsc -p packages/shared
 WORKDIR /app/apps/api
 RUN npx prisma generate
-RUN npm run build
+RUN node ../../node_modules/@nestjs/cli/bin/nest.js build
 WORKDIR /app
 
 FROM node:20-alpine AS runner
@@ -21,6 +26,7 @@ ENV NODE_ENV=production
 
 COPY package.json package-lock.json ./
 COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
 RUN npm ci --omit=dev
 

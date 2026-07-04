@@ -18,6 +18,7 @@ RUN npx tsc -p packages/shared
 WORKDIR /app/apps/api
 RUN npx prisma generate
 RUN node ../../node_modules/@nestjs/cli/bin/nest.js build
+RUN npx tsc prisma/seed.ts --skipLibCheck --module commonjs --target ES2021 --esModuleInterop --outDir prisma
 WORKDIR /app
 
 FROM node:20-alpine AS runner

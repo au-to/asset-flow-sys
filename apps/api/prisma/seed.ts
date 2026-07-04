@@ -5,6 +5,12 @@ import { ApplicationStatus, AssetCategory, Role } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
+  const existingUsers = await prisma.user.count();
+  if (existingUsers > 0 && process.env.FORCE_SEED !== 'true') {
+    console.log('Seed skipped: database already initialized');
+    return;
+  }
+
   await prisma.auditLog.deleteMany();
   await prisma.applicationItem.deleteMany();
   await prisma.assetApplication.deleteMany();

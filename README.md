@@ -7,6 +7,7 @@
 - [认证题目要求](全栈工程师认证题目及要求.md)
 - [技术架构方案](docs/architecture.md)
 - [分阶段实施计划](docs/implementation-plan.md)
+- [Railway 部署指南](docs/railway-deploy.md)
 
 ## 5 分钟快速启动
 
@@ -97,4 +98,21 @@ npm run test:e2e
 
 - 前端：React 18 + TypeScript + Vite + Ant Design 5 + Zustand + React Router 6
 - 后端：NestJS 10 + Prisma 5 + PostgreSQL 15 + JWT + exceljs
-- 部署：Docker Compose + Nginx
+- 部署：Docker Compose（本地）/ [Railway](docs/railway-deploy.md)（生产推荐）
+
+## Railway 云部署（推荐）
+
+完整步骤见 **[docs/railway-deploy.md](docs/railway-deploy.md)**。
+
+简要流程：
+
+1. Railway 创建 Project + PostgreSQL
+2. 部署 `api` 服务（`npm run railway:build:api` / `railway:start:api`）
+3. 部署 `web` 服务，设置 `VITE_API_BASE_URL=https://<api域名>/api`
+4. 在 API 设置 `WEB_ORIGIN=https://<web域名>`
+5. 访问 Web 公网链接，用 `employee_a / 123456` 验证
+
+```bash
+# 本地模拟 Railway 构建（可选）
+VITE_API_BASE_URL=http://localhost:3001/api npm run railway:build:web
+```

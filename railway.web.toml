@@ -1,0 +1,7 @@
+[build]
+builder = "nixpacks"
+buildCommand = "chmod +x scripts/railway-build-web.sh && ./scripts/railway-build-web.sh"
+
+[deploy]
+startCommand = "chmod +x scripts/railway-start-web.sh && ./scripts/railway-start-web.sh"
+restartPolicyType = "on_failure"

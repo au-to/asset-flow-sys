@@ -17,7 +17,10 @@ async function bootstrap() {
   );
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new ResponseInterceptor(app.get(Reflector)));
-  app.enableCors();
+  const corsOrigins = process.env.WEB_ORIGIN
+    ? process.env.WEB_ORIGIN.split(',').map((origin) => origin.trim())
+    : true;
+  app.enableCors({ origin: corsOrigins, credentials: true });
   const port = process.env.PORT || 3001;
   await app.listen(port);
   console.log(`API running on http://localhost:${port}`);

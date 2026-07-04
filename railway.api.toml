@@ -1,0 +1,9 @@
+[build]
+builder = "nixpacks"
+buildCommand = "chmod +x scripts/railway-build-api.sh && ./scripts/railway-build-api.sh"
+
+[deploy]
+startCommand = "chmod +x scripts/railway-start-api.sh && ./scripts/railway-start-api.sh"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"

@@ -6,7 +6,6 @@ if [ -z "$VITE_API_BASE_URL" ]; then
 fi
 
 echo "Building Web..."
-npm install
 npm run build -w @asset-flow/shared
 npm run build -w @asset-flow/web
 echo "Web build complete."

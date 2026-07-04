@@ -12,11 +12,12 @@
     "build": "npm run build -w @asset-flow/shared && npm run build -w @asset-flow/api && npm run build -w @asset-flow/web",
     "test:e2e": "npm run test:e2e -w @asset-flow/api",
     "railway:build:api": "sh scripts/railway-build-api.sh",
+    "railway:predeploy:api": "sh scripts/railway-predeploy-api.sh",
     "railway:start:api": "sh scripts/railway-start-api.sh",
     "railway:build:web": "sh scripts/railway-build-web.sh",
     "railway:start:web": "sh scripts/railway-start-web.sh"
   },
-  "devDependencies": {
+  "dependencies": {
     "serve": "^14.2.4"
   }
 }

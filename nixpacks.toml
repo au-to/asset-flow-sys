@@ -1,0 +1,3 @@
+# Nixpacks 安装阶段：构建需要 devDependencies（tsc、nest、vite 等）
+[phases.install]
+cmds = ["npm ci --include=dev"]

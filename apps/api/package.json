@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "build": "nest build",
+    "prestart:dev": "npm run build -w @asset-flow/shared",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy",
-    "prisma:seed": "ts-node prisma/seed.ts",
-    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand"
+    "prisma:migrate": "node scripts/run-with-root-env.mjs npx prisma migrate deploy",
+    "prisma:seed": "node scripts/run-with-root-env.mjs npx ts-node prisma/seed.ts",
+    "test:e2e": "node scripts/run-with-root-env.mjs npx jest --config ./test/jest-e2e.json --runInBand"
   },
   "dependencies": {
     "@asset-flow/shared": "*",

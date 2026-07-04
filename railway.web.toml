@@ -3,5 +3,5 @@ builder = "DOCKERFILE"
 dockerfilePath = "docker/web-railway.Dockerfile"
 
 [deploy]
-startCommand = "chmod +x scripts/railway-start-web.sh && ./scripts/railway-start-web.sh"
+startCommand = "/bin/sh ./scripts/railway-start-web.sh"
 restartPolicyType = "on_failure"

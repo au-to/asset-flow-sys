@@ -4,7 +4,7 @@ dockerfilePath = "docker/api.Dockerfile"
 
 [deploy]
 preDeployCommand = "/bin/sh ./scripts/railway-predeploy-api.sh"
-startCommand = "chmod +x scripts/railway-start-api.sh && ./scripts/railway-start-api.sh"
+startCommand = "/bin/sh ./scripts/railway-start-api.sh"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"

@@ -34,3 +34,4 @@ COPY scripts/railway-predeploy-api.sh scripts/railway-start-api.sh ./scripts/
 RUN chmod +x ./scripts/railway-predeploy-api.sh ./scripts/railway-start-api.sh
 
 EXPOSE 3001
+CMD ["sh", "-c", "./scripts/railway-predeploy-api.sh && ./scripts/railway-start-api.sh"]

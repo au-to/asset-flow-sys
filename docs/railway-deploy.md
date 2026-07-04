@@ -17,6 +17,17 @@ flowchart LR
 | `api` | NestJS 后端 | `https://xxx-api.up.railway.app` |
 | `web` | React 前端静态站 | `https://xxx-web.up.railway.app` |
 
+### 构建与启动方式
+
+本项目使用 **Config as Code** + **多阶段 Dockerfile**，避免 Nixpacks 在 npm monorepo 下出现 `tsc: not found` 等问题。
+
+| 服务 | 配置文件 | Dockerfile | 构建 | 启动 |
+|------|----------|------------|------|------|
+| `api` | `railway.api.toml` | `docker/api.Dockerfile` | builder 阶段 `npm ci` + 编译 | preDeploy 迁移/seed → `node dist/main.js` |
+| `web` | `railway.web.toml` | `docker/web-railway.Dockerfile` | builder 阶段 `npm ci` + `vite build` | `serve` 静态资源 |
+
+> **说明**：`railway.*.toml` 中的配置会**覆盖** Railway 控制台中的同名设置，一般只需在 Settings 中指定 Config File，无需再手动填写 Build / Start / Pre-deploy 命令。
+
 ---
 
 ## 前置条件
@@ -51,28 +62,21 @@ flowchart LR
 |--------|-----|
 | **Root Directory** | `/`（仓库根目录，默认） |
 | **Config File** | `railway.api.toml` |
-| **Builder** | Dockerfile（`docker/api.Dockerfile`） |
 
-> API 使用多阶段 Dockerfile 构建，避免 Nixpacks 在 monorepo 下跳过 workspace 依赖导致 `tsc: not found`。
+`railway.api.toml` 已声明以下内容，**无需在 UI 重复填写**：
 
-**Build Command**：由 Dockerfile 处理，无需在 UI 填写。
+| 配置项 | 实际值 |
+|--------|--------|
+| **Builder** | Dockerfile → `docker/api.Dockerfile` |
+| **Pre-deploy Command** | `/bin/sh ./scripts/railway-predeploy-api.sh` |
+| **Start Command** | `./scripts/railway-start-api.sh` |
+| **Healthcheck Path** | `/api/health` |
 
-**Start Command**：
-
-```bash
-npm run railway:start:api
-```
-
-**Pre-deploy Command**（数据库迁移与种子数据，在容器启动前执行）：
+本地等效命令（调试时可手动执行）：
 
 ```bash
-npm run railway:predeploy:api
-```
-
-**Healthcheck Path**：
-
-```
-/api/health
+npm run railway:predeploy:api   # prisma migrate deploy + seed
+npm run railway:start:api       # node apps/api/dist/main.js
 ```
 
 ### 2.3 环境变量
@@ -83,8 +87,8 @@ npm run railway:predeploy:api
 |------|-----|------|
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | 引用 PostgreSQL 插件变量（服务名以实际为准） |
 | `JWT_SECRET` | 随机 32 位字符串 | 生产环境务必修改 |
-| `WEB_ORIGIN` | 先留空，Web 部署后再填 | 见下方说明 |
-| `NODE_ENV` | `production` | 可选 |
+| `WEB_ORIGIN` | 先留空，Web 部署后再填 | 见第四步 |
+| `FORCE_SEED` | `false`（默认） | 设为 `true` 时强制重新灌入种子数据 |
 
 > **引用数据库变量**：在 Variables 中点击 **Add Reference**，选择 PostgreSQL 服务的 `DATABASE_URL`。
 
@@ -94,9 +98,7 @@ npm run railway:predeploy:api
 2. 得到类似：`https://asset-flow-api-production.up.railway.app`
 3. 验证：访问 `https://<api域名>/api/health` 应返回 `{"code":0,"message":"success","data":{"status":"ok"}}`
 
-> 首次部署会执行 `prisma migrate deploy` + `seed`（写入测试账号与 5 万条审计数据），在 **Pre-deploy** 阶段完成，可能需要 **3~10 分钟**。
-
-构建工具（`typescript`、`@nestjs/cli`、`vite` 等）放在各 workspace 的 `dependencies` 中，确保 Railway production 安装后仍可正常构建，无需在构建阶段重复执行 `npm install`。
+> 首次部署会在 **Pre-deploy** 阶段执行 `prisma migrate deploy` + `seed`（测试账号与 5 万条审计数据），可能需要 **3~10 分钟**。日志中可看到 `Running database migration and seed...`。
 
 ---
 
@@ -113,21 +115,19 @@ npm run railway:predeploy:api
 |--------|-----|
 | **Root Directory** | `/` |
 | **Config File** | `railway.web.toml` |
-| **Builder** | Dockerfile（`docker/web-railway.Dockerfile`） |
 
-**Build Command**：由 Dockerfile 处理。
+`railway.web.toml` 已声明：
 
-**Start Command**：
-
-```bash
-npm run railway:start:web
-```
+| 配置项 | 实际值 |
+|--------|--------|
+| **Builder** | Dockerfile → `docker/web-railway.Dockerfile` |
+| **Start Command** | `./scripts/railway-start-web.sh`（`serve` 托管 `apps/web/dist`） |
 
 ### 3.3 环境变量（关键）
 
 | 变量 | 值 | 说明 |
 |------|-----|------|
-| `VITE_API_BASE_URL` | `https://<api域名>/api` | **构建时**注入，必须带 `/api` 后缀 |
+| `VITE_API_BASE_URL` | `https://<api域名>/api` | **Docker 构建时**注入，必须带 `/api` 后缀 |
 
 示例：
 
@@ -135,7 +135,7 @@ npm run railway:start:web
 VITE_API_BASE_URL=https://asset-flow-api-production.up.railway.app/api
 ```
 
-> `VITE_` 变量在 **build 阶段**生效。修改后需 **Redeploy** Web 服务。
+> `VITE_` 变量在 **build 阶段**生效（Dockerfile `ARG`）。修改后需 **Redeploy** Web 服务。
 
 ### 3.4 生成公网域名
 
@@ -182,11 +182,24 @@ WEB_ORIGIN=https://xxx.up.railway.app,https://your-domain.com
 
 ---
 
+## 可选：本地 Docker 全栈
+
+与 Railway 使用同一套 Dockerfile 在本地启动完整环境：
+
+```bash
+docker compose up --build
+```
+
+- 前端：http://localhost
+- API：http://localhost:3001/api/health
+
+> 本地全栈使用 `docker-compose.yml`（Web 为 `docker/web.Dockerfile` + Nginx），与 Railway 的 `docker/web-railway.Dockerfile`（`serve`）略有不同，但 API 构建逻辑一致。
+
+---
+
 ## 可选：Nixpacks 脚本构建（不推荐）
 
-若需用 Nixpacks 而非 Dockerfile，可执行 `npm run railway:build:api`，但 monorepo 在 Railway 上易出现 `tsc: not found`，**建议优先使用 Dockerfile**。
-
-## 可选：本地 Docker 全栈
+仓库仍保留 `scripts/railway-build-*.sh` 与 `npm run railway:build:*`，但 **Nixpacks 在 monorepo 上易失败**（`tsc: not found`、`Exit handler never called`）。仅在排查问题时参考，生产部署请使用 Dockerfile。
 
 ---
 
@@ -210,13 +223,13 @@ WEB_ORIGIN=https://xxx.up.railway.app,https://your-domain.com
 
 ### 4. 首次部署很慢
 
-seed 会写入 50,000+ 条审计日志，属正常现象。可在日志中看到 `Seed completed` 表示完成。
+seed 会写入 50,000+ 条审计日志，属正常现象。Pre-deploy 日志中出现 `Seed completed` 或 `Seed skipped` 表示完成。
 
-### 5. 构建报 `tsc: not found` 或 `Exit handler never called`
+### 5. 构建报 `tsc: not found` 或仍走 Nixpacks 脚本
 
-- 原因：Nixpacks 在 monorepo 下以 production 模式安装，workspace 的构建工具（`tsc` 等）常未正确安装
-- 本项目 **默认使用 Dockerfile** 多阶段构建（`docker/api.Dockerfile`、`docker/web-railway.Dockerfile`），在 builder 阶段完整安装依赖并编译
-- Web 构建需在 Railway Variables 中设置 `VITE_API_BASE_URL`
+- 确认 Settings → **Config File** 已设为 `railway.api.toml` / `railway.web.toml`
+- 确认部署日志为 Docker 构建（`FROM node:20-alpine AS builder`），而非 `railway-build-api.sh`
+- 若曾用 Nixpacks 失败过：Settings → **Clear Build Cache** 后重新部署
 
 ### 6. 自定义域名
 

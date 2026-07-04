@@ -1,6 +1,6 @@
 [build]
-builder = "nixpacks"
-buildCommand = "chmod +x scripts/railway-build-web.sh && ./scripts/railway-build-web.sh"
+builder = "DOCKERFILE"
+dockerfilePath = "docker/web-railway.Dockerfile"
 
 [deploy]
 startCommand = "chmod +x scripts/railway-start-web.sh && ./scripts/railway-start-web.sh"

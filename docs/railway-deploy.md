@@ -50,13 +50,12 @@ flowchart LR
 | 配置项 | 值 |
 |--------|-----|
 | **Root Directory** | `/`（仓库根目录，默认） |
-| **Config File** | `railway.api.toml`（可选，或在 UI 手动填命令） |
+| **Config File** | `railway.api.toml` |
+| **Builder** | Dockerfile（`docker/api.Dockerfile`） |
 
-**Build Command**（若不用 toml）：
+> API 使用多阶段 Dockerfile 构建，避免 Nixpacks 在 monorepo 下跳过 workspace 依赖导致 `tsc: not found`。
 
-```bash
-npm run railway:build:api
-```
+**Build Command**：由 Dockerfile 处理，无需在 UI 填写。
 
 **Start Command**：
 
@@ -114,12 +113,9 @@ npm run railway:predeploy:api
 |--------|-----|
 | **Root Directory** | `/` |
 | **Config File** | `railway.web.toml` |
+| **Builder** | Dockerfile（`docker/web-railway.Dockerfile`） |
 
-**Build Command**：
-
-```bash
-npm run railway:build:web
-```
+**Build Command**：由 Dockerfile 处理。
 
 **Start Command**：
 
@@ -186,16 +182,11 @@ WEB_ORIGIN=https://xxx.up.railway.app,https://your-domain.com
 
 ---
 
-## 可选：Docker 方式部署
+## 可选：Nixpacks 脚本构建（不推荐）
 
-若 Nixpacks 构建失败，可在 Railway 服务 Settings 中切换为 Dockerfile：
+若需用 Nixpacks 而非 Dockerfile，可执行 `npm run railway:build:api`，但 monorepo 在 Railway 上易出现 `tsc: not found`，**建议优先使用 Dockerfile**。
 
-| 服务 | Dockerfile |
-|------|------------|
-| `api` | `docker/api.Dockerfile` |
-| `web` | `docker/web-railway.Dockerfile` |
-
-Web 的 Docker 构建需在 Railway Variables 中设置 `VITE_API_BASE_URL`（作为 build arg 传入）。
+## 可选：本地 Docker 全栈
 
 ---
 
@@ -223,9 +214,9 @@ seed 会写入 50,000+ 条审计日志，属正常现象。可在日志中看到
 
 ### 5. 构建报 `tsc: not found` 或 `Exit handler never called`
 
-- 原因：Railway/Nixpacks 以 production 模式安装依赖，跳过 `devDependencies`；构建阶段重复 `npm install` 还可能触发 npm 超时与缓存损坏
-- 本项目将 `typescript`、`@nestjs/cli`、`vite` 等构建工具放在 `dependencies`，构建脚本只执行 compile，不再重复安装
-- 若仍失败，可在 Railway 服务 Settings 中切换为 `docker/api.Dockerfile` 构建
+- 原因：Nixpacks 在 monorepo 下以 production 模式安装，workspace 的构建工具（`tsc` 等）常未正确安装
+- 本项目 **默认使用 Dockerfile** 多阶段构建（`docker/api.Dockerfile`、`docker/web-railway.Dockerfile`），在 builder 阶段完整安装依赖并编译
+- Web 构建需在 Railway Variables 中设置 `VITE_API_BASE_URL`
 
 ### 6. 自定义域名
 

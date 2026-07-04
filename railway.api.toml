@@ -1,6 +1,6 @@
 [build]
-builder = "nixpacks"
-buildCommand = "chmod +x scripts/railway-build-api.sh && ./scripts/railway-build-api.sh"
+builder = "DOCKERFILE"
+dockerfilePath = "docker/api.Dockerfile"
 
 [deploy]
 preDeployCommand = "/bin/sh ./scripts/railway-predeploy-api.sh"

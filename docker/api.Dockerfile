@@ -14,7 +14,7 @@ RUN npm ci
 COPY packages/shared ./packages/shared
 COPY apps/api ./apps/api
 
-RUN node_modules/.bin/tsc -p packages/shared
+RUN npx tsc -p packages/shared
 WORKDIR /app/apps/api
 RUN npx prisma generate
 RUN node ../../node_modules/@nestjs/cli/bin/nest.js build

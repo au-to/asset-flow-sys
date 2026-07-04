@@ -16,8 +16,8 @@ COPY apps/web ./apps/web
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
-RUN node_modules/.bin/tsc -p packages/shared
-RUN node_modules/.bin/tsc -p apps/web
+RUN npx tsc -p packages/shared
+RUN npx tsc -p apps/web
 WORKDIR /app/apps/web
 RUN node ../../node_modules/vite/bin/vite.js build
 WORKDIR /app

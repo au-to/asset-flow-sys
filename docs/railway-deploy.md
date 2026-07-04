@@ -97,7 +97,7 @@ npm run railway:predeploy:api
 
 > 首次部署会执行 `prisma migrate deploy` + `seed`（写入测试账号与 5 万条审计数据），在 **Pre-deploy** 阶段完成，可能需要 **3~10 分钟**。
 
-构建依赖安装由根目录 `nixpacks.toml` 统一处理（`npm ci --include=dev`），确保 `tsc`、`nest`、`vite` 等构建工具可用。
+构建工具（`typescript`、`@nestjs/cli`、`vite` 等）放在各 workspace 的 `dependencies` 中，确保 Railway production 安装后仍可正常构建，无需在构建阶段重复执行 `npm install`。
 
 ---
 
@@ -223,9 +223,9 @@ seed 会写入 50,000+ 条审计日志，属正常现象。可在日志中看到
 
 ### 5. 构建报 `tsc: not found` 或 `Exit handler never called`
 
-- 原因：Railway/Nixpacks 默认以 production 模式安装依赖，跳过了 `devDependencies`
-- 本项目通过 `nixpacks.toml` 使用 `npm ci --include=dev` 解决
-- 构建脚本不再重复执行 `npm install`，避免超时与 npm 内部错误
+- 原因：Railway/Nixpacks 以 production 模式安装依赖，跳过 `devDependencies`；构建阶段重复 `npm install` 还可能触发 npm 超时与缓存损坏
+- 本项目将 `typescript`、`@nestjs/cli`、`vite` 等构建工具放在 `dependencies`，构建脚本只执行 compile，不再重复安装
+- 若仍失败，可在 Railway 服务 Settings 中切换为 `docker/api.Dockerfile` 构建
 
 ### 6. 自定义域名
 

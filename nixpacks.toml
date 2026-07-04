@@ -1,7 +1,0 @@
-# Nixpacks 安装阶段：构建需要 devDependencies（tsc、nest、vite 等）
-[variables]
-NPM_CONFIG_PRODUCTION = "false"
-NODE_ENV = "development"
-
-[phases.install]
-cmds = ["npm install --include=dev --prefer-offline --no-audit --no-fund"]

@@ -118,6 +118,7 @@ async function main() {
               assetName: `资产-${i + 1}`,
               quantity: i + 1,
               assetKey: i % 3 === 0 ? `SECRET_KEY_2026_${String.fromCharCode(65 + i)}` : null,
+              updatedBy: applicant.username,
             },
           ],
         },

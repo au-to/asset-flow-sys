@@ -14,7 +14,10 @@ export class ApplicationsService {
   ) {}
 
   async create(dto: CreateApplicationDto, user: UserContext) {
-    const items = enrichItemsWithKeys(dto.items);
+    const items = enrichItemsWithKeys(dto.items).map((item) => ({
+      ...item,
+      updatedBy: user.username,
+    }));
 
     const app = await this.prisma.$transaction(async (tx) => {
       const created = await tx.assetApplication.create({

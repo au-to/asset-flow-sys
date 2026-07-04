@@ -6,16 +6,18 @@ export function useDebounceCallback<T extends (...args: never[]) => void>(
 ): T {
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const debounced = useMemo(() => {
-    let timer: ReturnType<typeof setTimeout>;
     return ((...args: never[]) => {
-      clearTimeout(timer);
-      timer = setTimeout(() => callbackRef.current(...args), delay);
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        callbackRef.current(...args);
+      }, delay);
     }) as T;
   }, [delay]);
 
-  useEffect(() => () => clearTimeout(undefined), []);
+  useEffect(() => () => clearTimeout(timerRef.current), [delay]);
 
   return debounced;
 }

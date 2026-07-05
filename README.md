@@ -16,6 +16,7 @@
 - [认证题目要求](docs/全栈工程师认证题目及要求.md)
 - [技术架构方案](docs/architecture.md)
 - [分阶段实施计划](docs/implementation-plan.md)
+- [Vibecoding Prompt 记录](docs/PROMPT.md)
 - [Railway 部署指南](docs/railway-deploy.md)
 
 ## 5 分钟快速启动
@@ -89,8 +90,21 @@ npm run dev:web
 | GET | `/api/approvals/pending` | 待审批（主管） |
 | POST | `/api/approvals/:id/approve` | 同意 |
 | POST | `/api/approvals/:id/reject` | 驳回 |
-| GET | `/api/audit/logs` | 审计日志 |
+| GET | `/api/audit/logs` | 审计日志（多条件分页） |
 | GET | `/api/audit/export` | 流式导出 Excel |
+
+### 审计查询参数
+
+筛选条件作用于**关联申请单**（`asset_applications`）：
+
+| 参数 | 说明 |
+|------|------|
+| `applicantUsername` | 申请人用户名（模糊匹配，推荐） |
+| `applicantId` | 申请人 UUID（精确匹配，可选） |
+| `category` | 资产分类 |
+| `status` | 申请单当前状态 |
+| `startTime` / `endTime` | 申请单创建时间区间（ISO8601） |
+| `page` / `pageSize` | 分页 |
 
 ## 运行测试
 
@@ -100,7 +114,7 @@ docker compose -f docker-compose.dev.yml up -d
 npm run prisma:migrate -w @asset-flow/api
 npm run prisma:seed -w @asset-flow/api
 
-# 运行 E2E 测试（11 个场景全覆盖）
+# 运行 E2E 测试（13 个场景全覆盖）
 npm run test:e2e
 ```
 

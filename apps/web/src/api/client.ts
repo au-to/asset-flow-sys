@@ -6,6 +6,9 @@ const client = axios.create({
   timeout: 30000,
 });
 
+/** 大文件流式导出专用超时（5 分钟） */
+export const EXPORT_REQUEST_TIMEOUT_MS = 300_000;
+
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {

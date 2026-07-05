@@ -176,8 +176,8 @@ flowchart LR
   - Prisma `$transaction`：乐观锁 `updateMany(where: { id, version, status })` + `auditLog.create`
   - version 不匹配 → `ConflictException`
 - API：
-  - `GET /api/approvals/pending` — MANAGER，本部门 PENDING 单
-  - `POST /api/approvals/:id/approve` — MANAGER + **水平鉴权**（applicant.departmentId === operator.departmentId）
+  - `GET /api/approvals/pending` — MANAGER，**其管辖部门**（`departments.manager_id`）的 PENDING 单
+  - `POST /api/approvals/:id/approve` — MANAGER + **水平鉴权**（申请人所在部门的 `manager_id === operator.sub`）
   - `POST /api/approvals/:id/reject` — 同上，body.reason 必填
   - `POST /api/applications/:id/withdraw` — EMPLOYEE 本人 + PENDING
   - `GET /api/approvals/all` — ADMIN 全量分页
@@ -225,22 +225,23 @@ flowchart LR
 
 **后端 `apps/api/src/modules/audit/`**
 - `GET /api/audit/logs` — ADMIN/AUDITOR
-  - 筛选：applicantId、category、status(afterStatus)、startTime、endTime
+  - 筛选：`applicantUsername`（推荐）、`applicantId`（兼容）、`category`、**申请单** `status`、**申请单** `createdAt` 时间区间
   - 分页：page + pageSize
-  - 返回字段脱敏
+  - 返回字段含 `applicationStatus`，assetKey 脱敏
 - `GET /api/audit/export` — ADMIN/AUDITOR
   - exceljs `WorkbookWriter` 流式写 Response
   - 游标分批查询（每批 500 条，`orderBy: { id: 'asc' }`）
   - 禁止 `findMany` 一次加载全部
+  - Excel 含「单据状态」列
 
 **共享包**
 - 完善 [`packages/shared/src/mask.ts`](packages/shared/src/mask.ts)：`SECRET_KEY_2026_X` → `SEC-****-X`
 
 **前端 `apps/web/src/pages/Audit/`**
-- `AuditFilterBar`：申请人、分类、状态、时间区间
-- 搜索输入 **300ms Debounce**（`useDebounceSearch`）
-- `AuditLogTable`：展示脱敏 assetKey
-- 「导出 Excel」：`window.open` 或 fetch blob 触发下载
+- 筛选栏：申请人**用户名**、分类、单据状态、申请时间区间
+- 搜索输入 **300ms Debounce**（`useDebounceCallback`）
+- 列表展示 `applicationStatus` + 脱敏 assetKey
+- 「导出 Excel」：blob 下载，**5 分钟超时**，导出期间禁用筛选控件
 
 ### 验收标准
 
@@ -266,14 +267,20 @@ flowchart LR
 
 **自动化测试 `apps/api/test/`**
 - Jest + Supertest 集成测试（独立 test DB 或 transaction rollback）
-- 必测 7 场景（架构文档 §12.2）：
+- 必测 **13 场景**（见 [`docs/architecture.md`](architecture.md) §12.2）：
   1. 正常审批流
   2. 员工调 approve API → 403
   3. manager_b 越权审批 → 403
   4. 终态重复审批 → 409/400
-  5. 驳回后 audit_log 字段断言
+  5. 驳回后 audit_log 字段断言（含 operator.username）
   6. 列表 assetKey 脱敏断言
   7. 并发 approve 幂等
+  8. 员工撤回
+  9. 管理员强制终止
+  10. 审计 API 脱敏
+  11. 员工访问审计 API → 403
+  12. 流式导出 Excel + 脱敏列断言
+  13. 按申请单 status 筛选（非 afterStatus）
 - `npm run test:e2e` 一键执行
 
 **Docker 生产编排**
@@ -286,6 +293,7 @@ flowchart LR
 - 新建 [`PROMPT.md`](PROMPT.md)：记录 vibecoding 使用的核心 Prompt（认证要求）
 - 核对 [`docs/architecture.md`](docs/architecture.md) 与实现一致
 - 新建 [`docs/implementation-plan.md`](docs/implementation-plan.md)：即本计划文档落盘
+- 新建 [`docs/PROMPT.md`](docs/PROMPT.md) 与 [`docs/prompts/`](docs/prompts/)：Vibecoding Prompt 归档
 - 部署到云服务器，README 附上访问链接
 
 **收尾检查**
@@ -303,7 +311,7 @@ flowchart LR
 
 ### Vibecoding 推荐 Prompt
 
-> 「编写 Jest+Supertest 集成测试覆盖7个必测场景；完善 docker-compose 一键启动含 migrate+seed；更新 README 五分钟指南和测试账号；创建 PROMPT.md。」
+> 「编写 Jest+Supertest 集成测试覆盖 13 个必测场景；完善 docker-compose 一键启动含 migrate+seed；更新 README 五分钟指南和测试账号；创建 PROMPT.md；同步 architecture 文档与实现。」
 
 ---
 
@@ -357,4 +365,5 @@ flowchart TB
 - [认证题目要求](全栈工程师认证题目及要求.md)
 - [技术架构方案](docs/architecture.md)
 - [分阶段实施计划](docs/implementation-plan.md)
+- [Vibecoding Prompt 记录](docs/PROMPT.md)
 ```

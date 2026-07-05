@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserContext } from '../../common/decorators/current-user.decorator';
 import { StateMachineService } from '../applications/state-machine.service';
 import { maskApplicationItems } from '../applications/application.mapper';
+import { getManagedDepartmentIds } from '../../common/authorization/manager-scope';
 
 @Injectable()
 export class ApprovalsService {
@@ -13,9 +14,10 @@ export class ApprovalsService {
   ) {}
 
   async findPending(user: UserContext, page = 1, pageSize = 10) {
+    const managedDepartmentIds = await getManagedDepartmentIds(this.prisma, user.sub);
     const where = {
       status: ApplicationStatus.PENDING,
-      applicant: { departmentId: user.departmentId },
+      applicant: { departmentId: { in: managedDepartmentIds } },
     };
     const [total, list] = await Promise.all([
       this.prisma.assetApplication.count({ where }),

@@ -81,7 +81,7 @@ export class ApplicationsService {
     if (!app) {
       throw new NotFoundException('申请单不存在');
     }
-    this.assertCanView(app, user);
+    await this.assertCanView(app, user);
     return this.toResponse(app);
   }
 
@@ -90,12 +90,18 @@ export class ApplicationsService {
     return this.toResponse(result!);
   }
 
-  private assertCanView(
+  private async assertCanView(
     app: { applicantId: string; applicant: { departmentId: string } },
     user: UserContext,
   ) {
     if (user.role === Role.ADMIN || user.role === Role.AUDITOR) return;
-    if (user.role === Role.MANAGER && app.applicant.departmentId === user.departmentId) return;
+    if (user.role === Role.MANAGER) {
+      const department = await this.prisma.department.findUnique({
+        where: { id: app.applicant.departmentId },
+        select: { managerId: true },
+      });
+      if (department?.managerId === user.sub) return;
+    }
     if (app.applicantId === user.sub) return;
     throw new ForbiddenException('无权查看该申请单');
   }

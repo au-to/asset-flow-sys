@@ -7,6 +7,7 @@ import {
 import { ApplicationStatus, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserContext } from '../../common/decorators/current-user.decorator';
+import { assertManagerOfDepartment } from '../../common/authorization/manager-scope';
 
 export type TransitionAction = 'SUBMIT' | 'APPROVE' | 'REJECT' | 'WITHDRAW' | 'TERMINATE';
 
@@ -61,9 +62,7 @@ export class StateMachineService {
     }
 
     if ((action === 'APPROVE' || action === 'REJECT') && operator.role === Role.MANAGER) {
-      if (app.applicant.departmentId !== operator.departmentId) {
-        throw new ForbiddenException('无权审批其他部门的申请单');
-      }
+      await assertManagerOfDepartment(this.prisma, operator.sub, app.applicant.departmentId);
     }
 
     if (action === 'REJECT' && !reason?.trim()) {

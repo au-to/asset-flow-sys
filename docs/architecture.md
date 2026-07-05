@@ -185,7 +185,7 @@ asset-flow-sys/
 │   │   ├── src/
 │   │   │   ├── api/                # Axios 封装 & API 调用
 │   │   │   ├── components/         # 通用组件（AuthGuard、PermissionButton）
-│   │   │   ├── hooks/              # useAuth、useDebounceSearch
+│   │   │   ├── hooks/              # useAuth、useDebounceCallback
 │   │   │   ├── pages/
 │   │   │   │   ├── Application/    # 资产申请页
 │   │   │   │   ├── Approval/       # 审批工作台
@@ -203,6 +203,7 @@ asset-flow-sys/
 │   └── api/                        # 后端 NestJS 应用
 │       ├── src/
 │       │   ├── common/             # 全局过滤器、拦截器、装饰器
+│       │   │   ├── authorization/  # 主管管辖范围校验（manager-scope）
 │       │   │   ├── guards/         # JwtAuthGuard、RolesGuard
 │       │   │   ├── decorators/     # @Roles()、@CurrentUser()
 │       │   │   ├── filters/        # 统一异常过滤器
@@ -444,7 +445,7 @@ model AuditLog {
 | `asset_applications` | `(applicant_id, status)` | 员工「我的申请」列表 |
 | `asset_applications` | `(status, created_at)` | 主管「待我审批」、管理员全量列表 |
 | `sys_audit_log` | `(created_at)` | 审计页时间区间查询 |
-| `sys_audit_log` | `(after_status, created_at)` | 按状态 + 时间组合筛选 |
+| `sys_audit_log` | `(after_status, created_at)` | 审计日志自身状态索引（业务筛选走申请单 `status`） |
 
 ### 5.4 种子数据规划
 
@@ -511,7 +512,7 @@ interface JwtPayload {
 | 审计日志查询 | ❌ | ❌ | ✅ | ✅ |
 | 导出 Excel | ❌ | ❌ | ✅ | ✅ |
 
-> ¹ 主管仅可审批 **本部门员工** 的单据（水平权限）
+> ¹ 主管仅可审批 **其管辖部门**（`departments.manager_id`）下属员工的单据
 
 ### 6.3 双层权限校验
 
@@ -529,23 +530,36 @@ approve(@Param('id') id: string, @CurrentUser() user: UserContext) {
 
 #### 第二层：水平鉴权（Service 层）
 
-在业务 Service 内校验数据归属，防止改 ID 越权：
+在业务 Service 内校验数据归属，防止改 ID 越权。主管权限通过 `departments.manager_id` 判定，而非主管自身的 `departmentId`：
 
 ```typescript
+// apps/api/src/common/authorization/manager-scope.ts
+export async function assertManagerOfDepartment(
+  prisma: PrismaService,
+  managerId: string,
+  departmentId: string,
+): Promise<void> {
+  const department = await prisma.department.findUnique({
+    where: { id: departmentId },
+    select: { managerId: true },
+  });
+  if (!department || department.managerId !== managerId) {
+    throw new ForbiddenException('无权审批其他部门的申请单');
+  }
+}
+
 async approve(applicationId: string, operator: UserContext) {
   const app = await this.findWithApplicant(applicationId);
 
-  // 水平越权：主管只能审批本部门员工的申请
   if (operator.role === Role.MANAGER) {
-    if (app.applicant.departmentId !== operator.departmentId) {
-      throw new ForbiddenException('无权审批其他部门的申请单');
-    }
+    await assertManagerOfDepartment(this.prisma, operator.sub, app.applicant.departmentId);
   }
 
-  // 状态机校验 + 乐观锁更新 + 写审计日志（同一事务）
   return this.transition(app, operator, 'APPROVE');
 }
 ```
+
+待审批列表同样按 `manager_id` 过滤：`GET /api/approvals/pending` 仅返回 `applicant.departmentId IN (我管辖的部门)` 的 PENDING 单。
 
 ### 6.4 前端权限控制
 
@@ -668,8 +682,7 @@ async transition(app: AssetApplication, operator: UserContext, action: string, r
 
 | 方法 | 路径 | 角色 | 说明 |
 |------|------|------|------|
-| POST | `/api/applications` | EMPLOYEE+ | 创建草稿 |
-| POST | `/api/applications/:id/submit` | EMPLOYEE（本人） | 提交，状态 → PENDING |
+| POST | `/api/applications` | EMPLOYEE+ | 创建并提交（status → PENDING） |
 | POST | `/api/applications/:id/withdraw` | EMPLOYEE（本人） | 撤回 PENDING 单据 |
 | GET | `/api/applications/mine` | EMPLOYEE+ | 我的申请列表（分页） |
 | GET | `/api/applications/:id` | 相关角色 | 申请详情 |
@@ -693,19 +706,24 @@ async transition(app: AssetApplication, operator: UserContext, action: string, r
 
 ### 8.3 审计查询参数
 
+筛选条件均作用于 **关联申请单**（`asset_applications`），而非审计日志自身的后置状态或操作时间：
+
 ```
-GET /api/audit/logs?applicantId=&category=&status=&startTime=&endTime=&page=1&pageSize=20
+GET /api/audit/logs?applicantUsername=&applicantId=&category=&status=&startTime=&endTime=&page=1&pageSize=20
 ```
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `applicantId` | string | 申请人 ID |
-| `category` | enum | 资产分类 |
-| `status` | enum | 单据状态（after_status） |
-| `startTime` | ISO8601 | 申请时间起 |
-| `endTime` | ISO8601 | 申请时间止 |
+| `applicantUsername` | string | 申请人用户名（模糊匹配，推荐；前端默认使用此参数） |
+| `applicantId` | string | 申请人 UUID（精确匹配，兼容保留） |
+| `category` | enum | 资产分类（申请单明细 `application_items.category`） |
+| `status` | enum | **申请单**当前状态（`asset_applications.status`） |
+| `startTime` | ISO8601 | **申请单**创建时间起（`asset_applications.created_at`） |
+| `endTime` | ISO8601 | **申请单**创建时间止 |
 | `page` | number | 页码 |
 | `pageSize` | number | 每页条数 |
+
+**响应字段补充**：每条审计记录返回 `applicationStatus`（申请单当前状态），便于列表展示与筛选语义对齐。
 
 ---
 
@@ -746,9 +764,9 @@ ApplicationPage
 
 ```
 AuditPage
-├── AuditFilterBar（申请人、分类、状态、时间区间 — 搜索带 300ms Debounce）
-├── AuditLogTable（脱敏后的 assetKey 列）
-└── [导出 Excel] 按钮 → window.open / blob 流式下载
+├── AuditFilterBar（申请人用户名、分类、单据状态、申请时间区间 — 300ms Debounce）
+├── AuditLogTable（含 applicationStatus 列 + 脱敏 assetKey 列）
+└── [导出 Excel] 按钮 → blob 流式下载（timeout 5 分钟，导出期间禁用筛选）
 ```
 
 ### 9.2 路由守卫实现
@@ -788,10 +806,9 @@ axios.interceptors.response.use(
 ### 9.4 防抖搜索
 
 ```typescript
-function useDebounceSearch(callback: (keyword: string) => void, delay = 300) {
-  const debouncedFn = useMemo(() => debounce(callback, delay), [callback, delay]);
-  useEffect(() => () => debouncedFn.cancel(), [debouncedFn]);
-  return debouncedFn;
+// apps/web/src/hooks/useDebounceCallback.ts
+function useDebounceCallback<T extends (...args: never[]) => void>(callback: T, delay = 300): T {
+  // 返回防抖后的 callback，用于 Audit 页 onValuesChange
 }
 ```
 
@@ -832,8 +849,8 @@ export function maskAssetKey(key: string): string {
 }
 ```
 
-- **后端**：列表/详情 DTO 序列化时调用 `maskAssetKey()`
-- **前端**：展示层再次调用（双保险，防接口遗漏）
+- **后端**：列表/详情/导出 DTO 序列化时调用 `maskAssetKey()`
+- **前端**：展示接口返回的已脱敏字段（脱敏逻辑以 `packages/shared` 为单一来源）
 
 ---
 
@@ -871,7 +888,9 @@ async export(@Query() filters: AuditExportDto, @Res() res: Response) {
   const sheet = workbook.addWorksheet('审计日志');
 
   // 写表头
-  sheet.addRow(['操作时间', '操作人', '动作', '驳回原因', '前置状态', '后置状态', '资产Key']).commit();
+  sheet.addRow([
+    '操作时间', '操作人', '动作', '驳回原因', '前置状态', '后置状态', '资产Key', '申请人', '单据状态',
+  ]).commit();
 
   const BATCH_SIZE = 500;
   let cursor: string | undefined;
@@ -883,7 +902,7 @@ async export(@Query() filters: AuditExportDto, @Res() res: Response) {
       cursor: cursor ? { id: cursor } : undefined,
       where: this.buildWhere(filters),
       orderBy: { id: 'asc' },
-      include: { operator: true },
+      include: { operator: true, application: { include: { applicant: true } } },
     });
 
     if (batch.length === 0) break;
@@ -897,6 +916,8 @@ async export(@Query() filters: AuditExportDto, @Res() res: Response) {
         log.beforeStatus ?? '',
         log.afterStatus,
         maskAssetKey(log.metadata?.assetKey ?? ''),
+        log.application.applicant.username,
+        log.application.status,
       ]).commit();
     }
 
@@ -932,22 +953,30 @@ const buffer = await workbook.xlsx.writeBuffer();
 
 | # | 场景 | 操作 | 预期 |
 |---|------|------|------|
-| 1 | 正常审批流 | 员工提交 → 主管同意 | 200，`status=APPROVED`，audit_log 有 APPROVE 记录 |
+| 1 | 正常审批流 | 员工提交 → 主管同意 | 201，`status=APPROVED`，audit_log 有 APPROVE 记录 |
 | 2 | 垂直越权 | 员工调用 `POST /approvals/:id/approve` | **403** |
-| 3 | 水平越权 | 主管 B 审批主管 A 部门员工的单子 | **403** |
+| 3 | 水平越权 | 主管 B 审批主管 A 管辖部门员工的单子 | **403** |
 | 4 | 状态边界 | 对已 APPROVED 的单再次审批 | **409** 或 **400**，友好提示 |
-| 5 | 驳回审计 | 主管驳回（带 reason） | audit_log 含 operator、reason、before=PENDING、after=REJECTED |
+| 5 | 驳回审计 | 主管驳回（带 reason） | audit_log 含 operator（含 username）、reason、before=PENDING、after=REJECTED |
 | 6 | 脱敏校验 | 查询含 assetKey 的列表 | 返回中 assetKey 已脱敏 |
-| 7 | 并发审批 | 两个主管同时 approve 同一单 | 仅一个成功，另一个 Conflict |
+| 7 | 并发审批 | 两个 approve 并发同一单 | 仅一个成功，另一个 409 |
+| 8 | 员工撤回 | 员工撤回 PENDING 单 | WITHDRAWN + audit_log |
+| 9 | 管理员终止 | admin 终止 PENDING 单 | TERMINATED |
+| 10 | 审计 API 脱敏 | 查询 audit/logs | assetKey 已脱敏，不含明文 SECRET_KEY |
+| 11 | 审计 API 越权 | 员工访问 audit/logs | **403** |
+| 12 | 流式导出 | GET audit/export（带 applicantUsername 过滤） | 200，xlsx 可解析，资产 Key 列已脱敏 |
+| 13 | 单据状态筛选 | 按 status=APPROVED 筛选 | 返回关联申请单已为 APPROVED 的日志，而非 afterStatus 匹配 |
 
 ### 12.3 测试运行方式
 
 ```bash
-# 启动测试数据库
-docker compose -f docker-compose.test.yml up -d
+# 确保测试数据库已启动并 seed
+docker compose -f docker-compose.dev.yml up -d
+npm run prisma:migrate -w @asset-flow/api
+npm run prisma:seed -w @asset-flow/api
 
-# 运行 API 集成测试
-cd apps/api && npm run test:e2e
+# 运行 API 集成测试（13 场景）
+npm run test:e2e
 ```
 
 ---
@@ -1003,7 +1032,7 @@ docker compose exec api npx prisma db seed
 |----|------|
 | 认证 | JWT + 密码 bcrypt 哈希存储 |
 | 垂直鉴权 | NestJS RolesGuard，每个敏感 API 声明角色 |
-| 水平越权 | Service 层校验部门归属与单据所有权 |
+| 水平越权 | Service 层校验 `departments.manager_id` 与单据所有权 |
 | 输入校验 | class-validator DTO 校验 + Prisma 参数化查询防 SQL 注入 |
 | 状态篡改 | 后端状态机强制校验，前端传参不可信 |
 | 并发安全 | 乐观锁 version 字段 |
@@ -1025,14 +1054,14 @@ docker compose exec api npx prisma db seed
 |--------|-------------|
 | 动态表单与校验 | Ant Design `Form.List` + 字段 rules + 提交前 `validateFields` |
 | 角色与权限视图 | `AuthGuard` 路由守卫 + 条件渲染按钮（非 CSS 隐藏） |
-| 交互体验与性能 | 审批按钮 `loading` 态 + `useDebounceSearch` 300ms 防抖 |
+| 交互体验与性能 | 审批按钮 `loading` 态 + `useDebounceCallback` 300ms 防抖 + 导出 5 分钟超时 |
 
 ### 维度二：后端架构与安全（40 分）
 
 | 得分点 | 架构方案对应 |
 |--------|-------------|
 | 垂直鉴权 | `JwtAuthGuard` + `RolesGuard` + `@Roles()` 装饰器 |
-| 水平越权防御 | Service 层 `departmentId` 归属校验 |
+| 水平越权防御 | `departments.manager_id` 归属校验 + 待办列表按管辖部门过滤 |
 | 事务一致性 | Prisma `$transaction`：状态更新 + audit_log 插入 |
 | 状态机幂等性 | `version` 乐观锁 + `updateMany` 条件更新 |
 | 流式导出 | exceljs `WorkbookWriter` + 游标分批 500 条 |

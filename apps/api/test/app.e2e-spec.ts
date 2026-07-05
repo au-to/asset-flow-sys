@@ -144,6 +144,7 @@ describe('Asset Flow E2E', () => {
 
     const audit = await prisma.auditLog.findFirst({
       where: { applicationId: appId, action: 'REJECT' },
+      include: { operator: true },
     });
 
     expect(audit).toBeTruthy();
@@ -151,6 +152,7 @@ describe('Asset Flow E2E', () => {
     expect(audit?.beforeStatus).toBe('PENDING');
     expect(audit?.afterStatus).toBe('REJECTED');
     expect(audit?.operatorId).toBeTruthy();
+    expect(audit?.operator.username).toBe('manager_a');
   });
 
   it('6. assetKey masking in list response', async () => {
@@ -260,5 +262,79 @@ describe('Asset Flow E2E', () => {
       .set('Authorization', `Bearer ${employeeToken}`);
 
     expect(res.status).toBe(403);
+  });
+
+  it('12. audit export streams excel with masked asset keys', async () => {
+    const ExcelJS = await import('exceljs');
+
+    const res = await request(app.getHttpServer())
+      .get('/api/audit/export')
+      .query({ applicantUsername: 'employee_a' })
+      .set('Authorization', `Bearer ${auditorToken}`)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => callback(null, Buffer.concat(chunks)));
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('spreadsheetml');
+    expect(Buffer.isBuffer(res.body)).toBe(true);
+    expect((res.body as Buffer).length).toBeGreaterThan(100);
+
+    const workbook = new ExcelJS.Workbook();
+    await (workbook.xlsx as unknown as { load: (input: unknown) => Promise<unknown> }).load(
+      res.body,
+    );
+    const sheet = workbook.getWorksheet('审计日志');
+    expect(sheet).toBeTruthy();
+
+    const dataRows = sheet!.getRows(2, 20) ?? [];
+    expect(dataRows.length).toBeGreaterThan(0);
+
+    const maskedKeyCell = dataRows
+      .map((row) => row.getCell(7).text)
+      .find((value) => /SEC-\*\*\*\*-./.test(value));
+    expect(maskedKeyCell).toBeTruthy();
+    expect(maskedKeyCell).not.toMatch(/SECRET_KEY/);
+  });
+
+  it('13. audit filter by application status not log afterStatus', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/api/applications')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({
+        reason: '状态筛选测试',
+        items: [{ category: 'ELECTRONIC_DEVICE', assetName: '测试设备', quantity: 1 }],
+      });
+
+    const appId = createRes.body.data.id;
+
+    await request(app.getHttpServer())
+      .post(`/api/approvals/${appId}/approve`)
+      .set('Authorization', `Bearer ${managerAToken}`);
+
+    const pendingRes = await request(app.getHttpServer())
+      .get('/api/audit/logs')
+      .query({ status: 'PENDING', applicantUsername: 'employee_a', pageSize: 5 })
+      .set('Authorization', `Bearer ${auditorToken}`);
+
+    expect(pendingRes.status).toBe(200);
+    const pendingAppIds = pendingRes.body.data.list.map(
+      (log: { applicationId: string }) => log.applicationId,
+    );
+    expect(pendingAppIds).not.toContain(appId);
+
+    const approvedRes = await request(app.getHttpServer())
+      .get('/api/audit/logs')
+      .query({ status: 'APPROVED', applicantUsername: 'employee_a', pageSize: 50 })
+      .set('Authorization', `Bearer ${auditorToken}`);
+
+    expect(approvedRes.status).toBe(200);
+    const approvedAppIds = approvedRes.body.data.list.map(
+      (log: { applicationId: string }) => log.applicationId,
+    );
+    expect(approvedAppIds).toContain(appId);
   });
 });

@@ -71,6 +71,7 @@ export interface AuditLog {
   operator: { id: string; username: string };
   applicant: { id: string; username: string };
   applicationId: string;
+  applicationStatus: ApplicationStatus;
   assetKey: string;
 }
 

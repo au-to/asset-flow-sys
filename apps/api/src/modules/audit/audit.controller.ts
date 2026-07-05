@@ -13,6 +13,7 @@ export class AuditController {
   @Get('logs')
   findLogs(
     @Query('applicantId') applicantId?: string,
+    @Query('applicantUsername') applicantUsername?: string,
     @Query('category') category?: AssetCategory,
     @Query('status') status?: ApplicationStatus,
     @Query('startTime') startTime?: string,
@@ -22,6 +23,7 @@ export class AuditController {
   ) {
     return this.auditService.findLogs({
       applicantId,
+      applicantUsername,
       category,
       status,
       startTime,
@@ -36,13 +38,14 @@ export class AuditController {
   async export(
     @Res() res: Response,
     @Query('applicantId') applicantId?: string,
+    @Query('applicantUsername') applicantUsername?: string,
     @Query('category') category?: AssetCategory,
     @Query('status') status?: ApplicationStatus,
     @Query('startTime') startTime?: string,
     @Query('endTime') endTime?: string,
   ) {
     await this.auditService.exportExcel(
-      { applicantId, category, status, startTime, endTime },
+      { applicantId, applicantUsername, category, status, startTime, endTime },
       res,
     );
   }

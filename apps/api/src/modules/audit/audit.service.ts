@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 export interface AuditQueryDto {
   applicantId?: string;
+  applicantUsername?: string;
   category?: AssetCategory;
   status?: ApplicationStatus;
   startTime?: string;
@@ -20,27 +21,33 @@ export class AuditService {
   constructor(private prisma: PrismaService) {}
 
   private buildWhere(query: AuditQueryDto): Prisma.AuditLogWhereInput {
-    const where: Prisma.AuditLogWhereInput = {};
+    const applicationWhere: Prisma.AssetApplicationWhereInput = {};
 
     if (query.status) {
-      where.afterStatus = query.status;
+      applicationWhere.status = query.status;
     }
     if (query.startTime || query.endTime) {
-      where.createdAt = {};
-      if (query.startTime) where.createdAt.gte = new Date(query.startTime);
-      if (query.endTime) where.createdAt.lte = new Date(query.endTime);
+      applicationWhere.createdAt = {};
+      if (query.startTime) applicationWhere.createdAt.gte = new Date(query.startTime);
+      if (query.endTime) applicationWhere.createdAt.lte = new Date(query.endTime);
     }
     if (query.applicantId) {
-      where.application = { applicantId: query.applicantId };
+      applicationWhere.applicantId = query.applicantId;
     }
-    if (query.category) {
-      where.application = {
-        ...(where.application as Prisma.AssetApplicationWhereInput),
-        items: { some: { category: query.category } },
+    if (query.applicantUsername?.trim()) {
+      applicationWhere.applicant = {
+        username: { contains: query.applicantUsername.trim(), mode: 'insensitive' },
       };
     }
+    if (query.category) {
+      applicationWhere.items = { some: { category: query.category } };
+    }
 
-    return where;
+    if (Object.keys(applicationWhere).length === 0) {
+      return {};
+    }
+
+    return { application: applicationWhere };
   }
 
   async findLogs(query: AuditQueryDto) {
@@ -85,7 +92,17 @@ export class AuditService {
     const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: res });
     const sheet = workbook.addWorksheet('审计日志');
     sheet
-      .addRow(['操作时间', '操作人', '动作', '驳回原因', '前置状态', '后置状态', '资产Key', '申请人'])
+      .addRow([
+        '操作时间',
+        '操作人',
+        '动作',
+        '驳回原因',
+        '前置状态',
+        '后置状态',
+        '资产Key',
+        '申请人',
+        '单据状态',
+      ])
       .commit();
 
     const where = this.buildWhere(query);
@@ -123,6 +140,7 @@ export class AuditService {
             log.afterStatus,
             maskAssetKey(rawKey),
             log.application.applicant.username,
+            log.application.status,
           ])
           .commit();
       }
@@ -145,6 +163,7 @@ export class AuditService {
     operator: { id: string; username: string };
     application: {
       id: string;
+      status: ApplicationStatus;
       applicant: { id: string; username: string };
       items: { category: AssetCategory; assetKey: string | null }[];
     };
@@ -169,6 +188,7 @@ export class AuditService {
         username: log.application.applicant.username,
       },
       applicationId: log.application.id,
+      applicationStatus: log.application.status,
       assetKey: maskAssetKey(rawKey),
     };
   }

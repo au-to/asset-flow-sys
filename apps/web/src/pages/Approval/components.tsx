@@ -75,7 +75,7 @@ export function ApplicationDetailModal({ open, application, onClose, footer }: D
         )
       }
       width={760}
-      destroyOnClose
+      destroyOnHidden
       className="detail-modal"
     >
       {application && (

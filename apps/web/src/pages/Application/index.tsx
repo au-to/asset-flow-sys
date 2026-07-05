@@ -102,7 +102,7 @@ export default function ApplicationPage() {
         title="资产申请单"
         description="填写申请信息并添加资产明细，提交后将进入审批流程"
       />
-      <Card className="page-card" bordered={false}>
+      <Card className="page-card" variant="borderless">
         <Form
           form={form}
           layout="vertical"

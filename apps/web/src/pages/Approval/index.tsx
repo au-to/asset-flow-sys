@@ -57,9 +57,9 @@ export default function ApprovalPage() {
         : '跟踪您提交的申请进度，待审批状态可撤回';
 
   const columns = [
-    { title: '申请人', dataIndex: ['applicant', 'username'], width: 100 },
+    { title: '申请人', dataIndex: ['applicant', 'username'], width: 120 },
     { title: '部门', dataIndex: ['applicant', 'departmentName'], width: 120 },
-    { title: '申请原因', dataIndex: 'reason', ellipsis: true },
+    { title: '申请原因', dataIndex: 'reason', width: 200, ellipsis: true },
     {
       title: '状态',
       dataIndex: 'status',
@@ -70,7 +70,9 @@ export default function ApprovalPage() {
       title: '申请时间',
       dataIndex: 'createdAt',
       width: 170,
-      render: (v: string) => new Date(v).toLocaleString(),
+      render: (v: string) => (
+        <span className="tabular-nums">{new Date(v).toLocaleString()}</span>
+      ),
     },
     {
       title: '操作',
@@ -152,7 +154,7 @@ export default function ApprovalPage() {
   return (
     <>
       <PageHeader title={`审批工作台 · ${pageTitle}`} description={pageDescription} />
-      <Card className="page-card" bordered={false}>
+      <Card className="page-card" variant="borderless">
         <Spin spinning={loading}>
           <div className="table-scroll-wrapper">
             <Table
@@ -203,7 +205,7 @@ export default function ApprovalPage() {
           });
         }}
         confirmLoading={!!rejectId && loadingId === `reject-${rejectId}`}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={rejectForm} layout="vertical">
           <Form.Item

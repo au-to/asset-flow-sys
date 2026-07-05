@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Card, Table, Form, Select, DatePicker, Button, Space, Input, message, Empty, Spin } from 'antd';
-import { DownloadOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Card, Table, Form, Select, DatePicker, Button, Input, message, Empty, Spin } from 'antd';
+import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import {
   ApplicationStatus,
@@ -16,12 +16,13 @@ import StatusBadge from '../../components/StatusBadge';
 const { RangePicker } = DatePicker;
 
 function buildQueryParams(values: Record<string, unknown>) {
+  const timeRange = values.timeRange as [dayjs.Dayjs, dayjs.Dayjs] | undefined;
   return {
     applicantUsername: values.applicantUsername as string | undefined,
     category: values.category as string | undefined,
     status: values.status as string | undefined,
-    startTime: (values.timeRange as [dayjs.Dayjs, dayjs.Dayjs] | undefined)?.[0]?.toISOString(),
-    endTime: (values.timeRange as [dayjs.Dayjs, dayjs.Dayjs] | undefined)?.[1]?.toISOString(),
+    startTime: timeRange?.[0]?.startOf('day').toISOString(),
+    endTime: timeRange?.[1]?.endOf('day').toISOString(),
   };
 }
 
@@ -86,13 +87,16 @@ export default function AuditPage() {
   };
 
   const filtersDisabled = loading || exporting;
+  const exportDisabled = exporting;
 
   const columns = [
     {
       title: '操作时间',
       dataIndex: 'createdAt',
       width: 170,
-      render: (v: string) => new Date(v).toLocaleString(),
+      render: (v: string) => (
+        <span className="tabular-nums">{new Date(v).toLocaleString()}</span>
+      ),
     },
     { title: '操作人', dataIndex: ['operator', 'username'], width: 100 },
     { title: '申请人', dataIndex: ['applicant', 'username'], width: 100 },
@@ -135,19 +139,19 @@ export default function AuditPage() {
       <PageHeader
         title="资产流转审计日志"
         description="按申请单维度筛选操作记录，支持流式导出 Excel"
+        extra={
+          <Button
+            type="primary"
+            icon={<DownloadOutlined />}
+            loading={exporting}
+            disabled={exportDisabled}
+            onClick={onExport}
+          >
+            导出 Excel
+          </Button>
+        }
       />
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <Button
-          type="primary"
-          icon={<DownloadOutlined />}
-          loading={exporting}
-          disabled={filtersDisabled}
-          onClick={onExport}
-        >
-          导出 Excel
-        </Button>
-      </div>
-      <Card className="page-card" bordered={false}>
+      <Card className="page-card" variant="borderless">
         <div className="filter-bar">
           <Form
             form={form}
@@ -156,13 +160,13 @@ export default function AuditPage() {
             style={{ gap: '8px 0' }}
           >
             <Form.Item name="applicantUsername" label="申请人">
-              <Input placeholder="用户名，如 employee_a" allowClear style={{ width: 160 }} />
+              <Input placeholder="用户名，如 employee_a" allowClear className="filter-input" />
             </Form.Item>
             <Form.Item name="category" label="资产分类">
               <Select
                 allowClear
                 placeholder="全部"
-                style={{ width: 140 }}
+                className="filter-select"
                 disabled={filtersDisabled}
                 options={Object.entries(ASSET_CATEGORY_LABELS).map(([value, label]) => ({ value, label }))}
               />
@@ -171,39 +175,26 @@ export default function AuditPage() {
               <Select
                 allowClear
                 placeholder="全部"
-                style={{ width: 120 }}
+                className="filter-select filter-select-sm"
                 disabled={filtersDisabled}
                 options={Object.entries(APPLICATION_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
               />
             </Form.Item>
             <Form.Item name="timeRange" label="申请时间">
-              <RangePicker showTime disabled={filtersDisabled} />
+              <RangePicker allowEmpty disabled={filtersDisabled} />
             </Form.Item>
             <Form.Item>
-              <Space>
-                <Button
-                  type="primary"
-                  icon={<SearchOutlined />}
-                  disabled={filtersDisabled}
-                  onClick={() => {
-                    setPage(1);
-                    fetchLogs(undefined, 1);
-                  }}
-                >
-                  查询
-                </Button>
-                <Button
-                  icon={<ReloadOutlined />}
-                  disabled={filtersDisabled}
-                  onClick={() => {
-                    form.resetFields();
-                    setPage(1);
-                    fetchLogs({}, 1);
-                  }}
-                >
-                  重置
-                </Button>
-              </Space>
+              <Button
+                icon={<ReloadOutlined />}
+                disabled={filtersDisabled}
+                onClick={() => {
+                  form.resetFields();
+                  setPage(1);
+                  fetchLogs({}, 1);
+                }}
+              >
+                重置
+              </Button>
             </Form.Item>
           </Form>
         </div>
@@ -222,6 +213,7 @@ export default function AuditPage() {
               pagination={{
                 current: page,
                 total,
+                pageSize: 20,
                 showSizeChanger: false,
                 showTotal: (t) => `共 ${t} 条`,
                 onChange: (p) => setPage(p),

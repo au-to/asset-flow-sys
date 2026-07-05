@@ -37,7 +37,7 @@ export default function LoginPage() {
         </p>
       </div>
       <div className="login-form-panel">
-        <Card className="login-card" title="登录系统" bordered={false}>
+        <Card className="login-card" title="登录系统" variant="borderless">
           <Form
             form={form}
             layout="vertical"

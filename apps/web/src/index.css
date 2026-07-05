@@ -1,9 +1,322 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
+:root {
+  --color-primary: #2563eb;
+  --color-accent: #059669;
+  --color-background: #f8fafc;
+  --color-foreground: #0f172a;
+  --color-muted: #64748b;
+  --color-border: #e2e8f0;
+  --color-surface: #ffffff;
+  --color-sidebar: #0f172a;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --transition-base: 0.2s ease-out;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: #f5f5f5;
+  font-family: 'Fira Sans', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.page-container {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.page-card {
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-sm) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+.page-card .ant-card-head {
+  border-bottom: 1px solid var(--color-border);
+  min-height: 56px;
+}
+
+.page-card .ant-card-head-title {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.table-scroll-wrapper {
+  overflow-x: auto;
+}
+
+.table-scroll-wrapper .ant-table-wrapper {
+  min-width: 640px;
+}
+
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 768px) {
+  .login-page {
+    grid-template-columns: 1fr;
+  }
+
+  .login-brand-panel {
+    display: none !important;
+  }
+}
+
+.login-brand-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #2563eb 100%);
+  color: #fff;
+}
+
+.login-brand-panel h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 12px;
+  line-height: 1.3;
+}
+
+.login-brand-panel p {
+  font-size: 15px;
+  opacity: 0.85;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 360px;
+}
+
+.login-form-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: var(--color-background);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-md) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+.login-card .ant-card-head {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.login-card .ant-card-head-title {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.test-account-btn {
+  cursor: pointer;
+  transition: border-color var(--transition-base), color var(--transition-base);
+}
+
+.form-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin: 24px 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.asset-item-row {
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  transition: border-color var(--transition-base);
+}
+
+.asset-item-row:hover {
+  border-color: #cbd5e1;
+}
+
+.remove-item-btn {
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 8px;
+  transition: color var(--transition-base);
+}
+
+.remove-item-btn:hover {
+  color: #dc2626;
+}
+
+.app-sider-logo {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.app-sider-logo-icon {
+  width: 32px;
+  height: 32px;
+  background: var(--color-primary);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.app-sider-logo-text {
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-layout {
+  min-height: 100vh;
+}
+
+.app-sider {
+  position: fixed !important;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 100;
+  height: 100vh !important;
+  overflow: hidden;
+}
+
+.app-sider-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-sider-top {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.app-main {
+  margin-left: 220px;
+  min-height: 100vh;
+}
+
+.app-content {
+  height: 100vh;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.app-content .ant-table-thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f8fafc;
+}
+
+.app-sider-user {
+  padding: 8px 0 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.app-sider-user .ant-dropdown-trigger {
+  display: block;
+  width: 100%;
+}
+
+.app-sider-user-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  width: calc(100% - 16px) !important;
+  margin: 4px 8px !important;
+  padding: 0 16px !important;
+  height: 40px !important;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background var(--transition-base);
+}
+
+.app-sider-user-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.app-sider-user-info {
+  text-align: left;
+  overflow: hidden;
+}
+
+.filter-bar {
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.detail-modal-section-title {
+  margin: 0 0 10px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+.detail-modal-section-title:not(:first-child) {
+  margin-top: 20px !important;
+}
+
+.detail-modal-table .ant-table {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.detail-modal-table .ant-table-thead > tr > th {
+  background: #f8fafc !important;
+  font-weight: 600;
+  color: #475569;
+  padding: 10px 12px !important;
+}
+
+.detail-modal-table .ant-table-tbody > tr > td {
+  padding: 10px 12px !important;
+}
+
+.detail-modal-table .detail-modal-datetime {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }

@@ -133,6 +133,7 @@ async function main() {
         action: 'SUBMIT',
         beforeStatus: null,
         afterStatus: ApplicationStatus.PENDING,
+        updatedBy: applicant.username,
         metadata: { assetKey: i % 3 === 0 ? `SECRET_KEY_2026_${String.fromCharCode(65 + i)}` : null },
       },
     });
@@ -146,13 +147,15 @@ async function main() {
   for (let offset = 0; offset < TOTAL_LOGS; offset += BATCH_SIZE) {
     const batch = Array.from({ length: Math.min(BATCH_SIZE, TOTAL_LOGS - offset) }, (_, idx) => {
       const n = offset + idx;
+      const operatorId = n % 2 === 0 ? employeeA.id : managerA.id;
       return {
         applicationId: applications[n % applications.length].id,
-        operatorId: n % 2 === 0 ? employeeA.id : managerA.id,
+        operatorId,
         action: n % 5 === 0 ? 'REJECT' : 'APPROVE',
         reason: n % 5 === 0 ? `驳回原因-${n}` : null,
         beforeStatus: ApplicationStatus.PENDING,
         afterStatus: n % 5 === 0 ? ApplicationStatus.REJECTED : ApplicationStatus.APPROVED,
+        updatedBy: operatorId === employeeA.id ? employeeA.username : managerA.username,
         metadata: {
           assetKey: `SECRET_KEY_2026_${String.fromCharCode(65 + (n % 26))}`,
         },

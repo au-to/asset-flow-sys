@@ -99,6 +99,7 @@ export class StateMachineService {
           reason: reason ?? null,
           beforeStatus: app.status,
           afterStatus: rule.to,
+          updatedBy: operator.username,
           metadata: metadata.length > 0 ? { items: metadata } : undefined,
         },
       });

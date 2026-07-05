@@ -38,6 +38,7 @@ export class ApplicationsService {
           action: 'SUBMIT',
           beforeStatus: null,
           afterStatus: ApplicationStatus.PENDING,
+          updatedBy: user.username,
           metadata: {
             items: created.items.map((i) => ({
               assetKey: i.assetKey,

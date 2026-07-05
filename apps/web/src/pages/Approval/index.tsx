@@ -76,7 +76,7 @@ export default function ApprovalPage() {
     },
     {
       title: '操作',
-      width: 240,
+      width: 160,
       fixed: 'right' as const,
       render: (_: unknown, record: Application) => (
         <Space size="small" wrap>
@@ -99,36 +99,6 @@ export default function ApprovalPage() {
               撤回
             </Button>
           )}
-          {user?.role === Role.MANAGER && record.status === ApplicationStatus.PENDING && (
-            <>
-              <Button
-                type="primary"
-                size="small"
-                loading={loadingId === `approve-${record.id}`}
-                disabled={!!loadingId}
-                onClick={() =>
-                  wrap(`approve-${record.id}`, async () => {
-                    await approvalsApi.approve(record.id);
-                    message.success('审批通过');
-                    load();
-                  })
-                }
-              >
-                同意
-              </Button>
-              <Button
-                danger
-                size="small"
-                disabled={!!loadingId}
-                onClick={() => {
-                  setRejectId(record.id);
-                  setRejectOpen(true);
-                }}
-              >
-                驳回
-              </Button>
-            </>
-          )}
           {user?.role === Role.ADMIN && record.status === ApplicationStatus.PENDING && (
             <Button
               danger
@@ -150,6 +120,40 @@ export default function ApprovalPage() {
       ),
     },
   ];
+
+  const detailFooter =
+    detail && user?.role === Role.MANAGER && detail.status === ApplicationStatus.PENDING ? (
+      <Space>
+        <Button onClick={() => setDetail(null)} disabled={!!loadingId}>
+          关闭
+        </Button>
+        <Button
+          danger
+          disabled={!!loadingId}
+          onClick={() => {
+            setRejectId(detail.id);
+            setRejectOpen(true);
+          }}
+        >
+          驳回
+        </Button>
+        <Button
+          type="primary"
+          loading={loadingId === `approve-${detail.id}`}
+          disabled={!!loadingId}
+          onClick={() =>
+            wrap(`approve-${detail.id}`, async () => {
+              await approvalsApi.approve(detail.id);
+              message.success('审批通过');
+              setDetail(null);
+              load();
+            })
+          }
+        >
+          同意
+        </Button>
+      </Space>
+    ) : undefined;
 
   return (
     <>
@@ -185,7 +189,12 @@ export default function ApprovalPage() {
           </div>
         </Spin>
       </Card>
-      <ApplicationDetailModal open={!!detail} application={detail} onClose={() => setDetail(null)} />
+      <ApplicationDetailModal
+        open={!!detail}
+        application={detail}
+        onClose={() => setDetail(null)}
+        footer={detailFooter}
+      />
       <Modal
         title="驳回申请"
         open={rejectOpen}
@@ -200,6 +209,7 @@ export default function ApprovalPage() {
             await approvalsApi.reject(rejectId, values.reason);
             message.success('已驳回');
             setRejectOpen(false);
+            setDetail(null);
             rejectForm.resetFields();
             load();
           });

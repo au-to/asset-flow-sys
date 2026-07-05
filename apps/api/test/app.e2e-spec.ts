@@ -16,6 +16,7 @@ describe('Asset Flow E2E', () => {
   let adminToken: string;
   let auditorToken: string;
   let pendingAppId: string;
+  let employeeAId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -43,6 +44,9 @@ describe('Asset Flow E2E', () => {
     managerBToken = await login('manager_b');
     adminToken = await login('admin');
     auditorToken = await login('auditor');
+
+    const employeeA = await prisma.user.findUnique({ where: { username: 'employee_a' } });
+    employeeAId = employeeA!.id;
   });
 
   afterAll(async () => {
@@ -269,7 +273,7 @@ describe('Asset Flow E2E', () => {
 
     const res = await request(app.getHttpServer())
       .get('/api/audit/export')
-      .query({ applicantUsername: 'employee_a' })
+      .query({ applicantId: employeeAId })
       .set('Authorization', `Bearer ${auditorToken}`)
       .buffer(true)
       .parse((response, callback) => {
@@ -317,7 +321,7 @@ describe('Asset Flow E2E', () => {
 
     const pendingRes = await request(app.getHttpServer())
       .get('/api/audit/logs')
-      .query({ status: 'PENDING', applicantUsername: 'employee_a', pageSize: 5 })
+      .query({ status: 'PENDING', applicantId: employeeAId, pageSize: 5 })
       .set('Authorization', `Bearer ${auditorToken}`);
 
     expect(pendingRes.status).toBe(200);
@@ -328,7 +332,7 @@ describe('Asset Flow E2E', () => {
 
     const approvedRes = await request(app.getHttpServer())
       .get('/api/audit/logs')
-      .query({ status: 'APPROVED', applicantUsername: 'employee_a', pageSize: 50 })
+      .query({ status: 'APPROVED', applicantId: employeeAId, pageSize: 50 })
       .set('Authorization', `Bearer ${auditorToken}`);
 
     expect(approvedRes.status).toBe(200);
@@ -337,4 +341,60 @@ describe('Asset Flow E2E', () => {
     );
     expect(approvedAppIds).toContain(appId);
   });
+
+  it('14. audit filter by applicantUsername fuzzy match', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/audit/logs')
+      .query({ applicantUsername: 'employee_a', pageSize: 20 })
+      .set('Authorization', `Bearer ${auditorToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.list.length).toBeGreaterThan(0);
+    expect(
+      res.body.data.list.every(
+        (log: { applicant: { username: string } }) => log.applicant.username === 'employee_a',
+      ),
+    ).toBe(true);
+
+    const partialRes = await request(app.getHttpServer())
+      .get('/api/audit/logs')
+      .query({ applicantUsername: 'employee', pageSize: 10 })
+      .set('Authorization', `Bearer ${auditorToken}`);
+
+    expect(partialRes.status).toBe(200);
+    expect(partialRes.body.data.list.length).toBeGreaterThan(0);
+    expect(
+      partialRes.body.data.list.every((log: { applicant: { username: string } }) =>
+        log.applicant.username.toLowerCase().includes('employee'),
+      ),
+    ).toBe(true);
+
+    const emptyRes = await request(app.getHttpServer())
+      .get('/api/audit/logs')
+      .query({ applicantUsername: 'no_such_user_xyz', pageSize: 20 })
+      .set('Authorization', `Bearer ${auditorToken}`);
+
+    expect(emptyRes.status).toBe(200);
+    expect(emptyRes.body.data.total).toBe(0);
+    expect(emptyRes.body.data.list).toHaveLength(0);
+  });
+
+  it('15. bulk audit export handles large dataset without failure', async () => {
+    const logCount = await prisma.auditLog.count();
+    expect(logCount).toBeGreaterThanOrEqual(1000);
+
+    const res = await request(app.getHttpServer())
+      .get('/api/audit/export')
+      .set('Authorization', `Bearer ${auditorToken}`)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => callback(null, Buffer.concat(chunks)));
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('spreadsheetml');
+    expect((res.body as Buffer).length).toBeGreaterThan(100_000);
+  }, 120_000);
 });

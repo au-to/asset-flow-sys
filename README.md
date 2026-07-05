@@ -99,8 +99,8 @@ npm run dev:web
 
 | 参数 | 说明 |
 |------|------|
-| `applicantUsername` | 申请人用户名（模糊匹配，推荐） |
-| `applicantId` | 申请人 UUID（精确匹配，可选） |
+| `applicantId` | 申请人 UUID（精确匹配） |
+| `applicantUsername` | 申请人用户名（模糊匹配） |
 | `category` | 资产分类 |
 | `status` | 申请单当前状态 |
 | `startTime` / `endTime` | 申请单创建时间区间（ISO8601） |
@@ -114,7 +114,7 @@ docker compose -f docker-compose.dev.yml up -d
 npm run prisma:migrate -w @asset-flow/api
 npm run prisma:seed -w @asset-flow/api
 
-# 运行 E2E 测试（13 个场景全覆盖）
+# 运行 E2E 测试（15 个场景全覆盖）
 npm run test:e2e
 ```
 

@@ -8,12 +8,18 @@ import {
   LogoutOutlined,
   UserOutlined,
   MenuOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from '@ant-design/icons';
 import { useAuthStore, hasRole } from '../stores/authStore';
 import { Role } from '@asset-flow/shared';
 
 const { Content, Sider } = Layout;
 const { useBreakpoint } = Grid;
+
+const SIDEBAR_WIDTH = 220;
+const SIDEBAR_COLLAPSED_WIDTH = 64;
+const SIDEBAR_COLLAPSED_KEY = 'app-sider-collapsed';
 
 const ROLE_LABELS: Record<Role, string> = {
   [Role.EMPLOYEE]: '普通员工',
@@ -30,6 +36,8 @@ function SidebarContent({
   username,
   roleLabel,
   token,
+  collapsed = false,
+  onToggleCollapse,
 }: {
   menuItems: { key: string; icon: ReactNode; label: string }[];
   selectedKey: string;
@@ -38,35 +46,52 @@ function SidebarContent({
   username?: string;
   roleLabel: string;
   token: ReturnType<typeof theme.useToken>['token'];
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }) {
   return (
     <>
       <div className="app-sider-top">
-        <div className="app-sider-logo">
-          <div className="app-sider-logo-icon">AF</div>
-          <span className="app-sider-logo-text">资产流转系统</span>
+        <div className={`app-sider-logo${collapsed ? ' app-sider-logo-collapsed' : ''}`}>
+          <div className="app-sider-logo-brand">
+            <div className="app-sider-logo-icon">AF</div>
+            {!collapsed && <span className="app-sider-logo-text">资产流转系统</span>}
+          </div>
+          {onToggleCollapse && (
+            <button
+              type="button"
+              className="app-sider-trigger"
+              onClick={onToggleCollapse}
+              aria-label={collapsed ? '展开菜单' : '收起菜单'}
+            >
+              {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            </button>
+          )}
         </div>
         <Menu
           theme="dark"
           mode="inline"
+          inlineCollapsed={collapsed}
           selectedKeys={[selectedKey]}
           items={menuItems}
           onClick={({ key }) => onNavigate(key)}
           style={{ borderInlineEnd: 'none' }}
         />
       </div>
-      <div className="app-sider-user">
-        <Dropdown menu={{ items: userMenuItems }} placement="topLeft">
-          <Button type="text" className="app-sider-user-btn">
+      <div className={`app-sider-user${collapsed ? ' app-sider-user-collapsed' : ''}`}>
+        <Dropdown menu={{ items: userMenuItems }} placement={collapsed ? 'topRight' : 'topLeft'}>
+          <Button type="text" className="app-sider-user-btn" title={collapsed ? `${username} · ${roleLabel}` : undefined}>
             <Avatar size="small" icon={<UserOutlined />} style={{ background: token.colorPrimary }} />
-            <div className="app-sider-user-info">
-              <Typography.Text strong style={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
-                {username}
-              </Typography.Text>
-              <Typography.Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>
-                {roleLabel}
-              </Typography.Text>
-            </div>
+            {!collapsed && (
+              <div className="app-sider-user-info">
+                <Typography.Text strong style={{ color: '#fff', display: 'block', lineHeight: 1.4 }}>
+                  {username}
+                </Typography.Text>
+                <Typography.Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>
+                  {roleLabel}
+                </Typography.Text>
+              </div>
+            )}
           </Button>
         </Dropdown>
       </div>
@@ -82,6 +107,14 @@ export default function AppLayout() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true',
+  );
+
+  const handleCollapse = (value: boolean) => {
+    setCollapsed(value);
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(value));
+  };
 
   const menuItems = [
     { key: '/application', icon: <FormOutlined />, label: '资产申请' },
@@ -117,12 +150,22 @@ export default function AppLayout() {
     username: user?.username,
     roleLabel: user?.role ? ROLE_LABELS[user.role] : '',
     token,
+    collapsed: !isMobile && collapsed,
+    onToggleCollapse: !isMobile ? () => handleCollapse(!collapsed) : undefined,
   };
 
   return (
     <Layout className="app-layout">
       {!isMobile && (
-        <Sider width={220} className="app-sider">
+        <Sider
+          width={SIDEBAR_WIDTH}
+          collapsedWidth={SIDEBAR_COLLAPSED_WIDTH}
+          collapsible
+          collapsed={collapsed}
+          onCollapse={handleCollapse}
+          trigger={null}
+          className="app-sider"
+        >
           <div className="app-sider-inner">
             <SidebarContent {...sidebarProps} />
           </div>
@@ -144,7 +187,9 @@ export default function AppLayout() {
         </Drawer>
       )}
 
-      <Layout className={`app-main${isMobile ? ' app-main-mobile' : ''}`}>
+      <Layout
+        className={`app-main${isMobile ? ' app-main-mobile' : ''}${!isMobile && collapsed ? ' app-main-collapsed' : ''}`}
+      >
         {isMobile && (
           <header className="app-mobile-header">
             <Button

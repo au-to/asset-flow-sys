@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Card, Table, Form, Select, DatePicker, Button, Input, message, Empty, Spin } from 'antd';
-import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Card, Table, Form, Select, DatePicker, Button, Input, message, Empty, Spin, Tag } from 'antd';
+import { DownloadOutlined, ReloadOutlined, FilterOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import {
   ApplicationStatus,
@@ -14,11 +14,25 @@ import PageHeader from '../../components/PageHeader';
 import StatusBadge from '../../components/StatusBadge';
 
 const { RangePicker } = DatePicker;
+const AUDIT_FILTER_COLLAPSED_KEY = 'audit-filter-collapsed';
+
+function countActiveFilters(values: Record<string, unknown>): number {
+  let count = 0;
+  if ((values.applicantUsername as string | undefined)?.trim()) count++;
+  if ((values.applicantId as string | undefined)?.trim()) count++;
+  if (values.category) count++;
+  if (values.status) count++;
+  if (values.timeRange) count++;
+  return count;
+}
 
 function buildQueryParams(values: Record<string, unknown>) {
   const timeRange = values.timeRange as [dayjs.Dayjs, dayjs.Dayjs] | undefined;
+  const applicantId = (values.applicantId as string | undefined)?.trim();
+  const applicantUsername = (values.applicantUsername as string | undefined)?.trim();
   return {
-    applicantUsername: values.applicantUsername as string | undefined,
+    ...(applicantId ? { applicantId } : {}),
+    ...(applicantUsername ? { applicantUsername } : {}),
     category: values.category as string | undefined,
     status: values.status as string | undefined,
     startTime: timeRange?.[0]?.startOf('day').toISOString(),
@@ -33,6 +47,22 @@ export default function AuditPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [filterCollapsed, setFilterCollapsed] = useState(
+    () => localStorage.getItem(AUDIT_FILTER_COLLAPSED_KEY) === 'true',
+  );
+  const filterValues = Form.useWatch([], form);
+  const activeFilterCount = useMemo(
+    () => countActiveFilters(filterValues ?? {}),
+    [filterValues],
+  );
+
+  const toggleFilterCollapsed = () => {
+    setFilterCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem(AUDIT_FILTER_COLLAPSED_KEY, String(next));
+      return next;
+    });
+  };
 
   const fetchLogs = useCallback(async (values?: Record<string, unknown>, p = page) => {
     setLoading(true);
@@ -98,8 +128,8 @@ export default function AuditPage() {
         <span className="tabular-nums">{new Date(v).toLocaleString()}</span>
       ),
     },
-    { title: '操作人', dataIndex: ['operator', 'username'], width: 100 },
-    { title: '申请人', dataIndex: ['applicant', 'username'], width: 100 },
+    { title: '操作人', dataIndex: ['operator', 'username'], width: 130 },
+    { title: '申请人', dataIndex: ['applicant', 'username'], width: 130 },
     { title: '动作', dataIndex: 'action', width: 100 },
     {
       title: '单据状态',
@@ -110,6 +140,7 @@ export default function AuditPage() {
     {
       title: '驳回原因',
       dataIndex: 'reason',
+      width: 120,
       ellipsis: true,
       render: (v: string | null) => v || '-',
     },
@@ -152,51 +183,80 @@ export default function AuditPage() {
         }
       />
       <Card className="page-card" variant="borderless">
-        <div className="filter-bar">
-          <Form
-            form={form}
-            layout="inline"
-            onValuesChange={(_, allValues) => debouncedSearch(allValues)}
-            style={{ gap: '8px 0' }}
-          >
-            <Form.Item name="applicantUsername" label="申请人">
-              <Input placeholder="用户名，如 employee_a" allowClear className="filter-input" />
-            </Form.Item>
-            <Form.Item name="category" label="资产分类">
-              <Select
-                allowClear
-                placeholder="全部"
-                className="filter-select"
-                disabled={filtersDisabled}
-                options={Object.entries(ASSET_CATEGORY_LABELS).map(([value, label]) => ({ value, label }))}
-              />
-            </Form.Item>
-            <Form.Item name="status" label="单据状态">
-              <Select
-                allowClear
-                placeholder="全部"
-                className="filter-select filter-select-sm"
-                disabled={filtersDisabled}
-                options={Object.entries(APPLICATION_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
-              />
-            </Form.Item>
-            <Form.Item name="timeRange" label="申请时间">
-              <RangePicker allowEmpty disabled={filtersDisabled} />
-            </Form.Item>
-            <Form.Item>
-              <Button
-                icon={<ReloadOutlined />}
-                disabled={filtersDisabled}
-                onClick={() => {
-                  form.resetFields();
-                  setPage(1);
-                  fetchLogs({}, 1);
-                }}
-              >
-                重置
-              </Button>
-            </Form.Item>
-          </Form>
+        <div className={`audit-filter-bar${filterCollapsed ? ' audit-filter-bar-collapsed' : ''}`}>
+          <div className="audit-filter-header">
+            <div className="audit-filter-title">
+              <FilterOutlined />
+              <span>筛选条件</span>
+              {activeFilterCount > 0 && (
+                <Tag color="blue" className="audit-filter-tag">
+                  {activeFilterCount} 项
+                </Tag>
+              )}
+              {filterCollapsed && activeFilterCount > 0 && (
+                <span className="audit-filter-summary">已启用 {activeFilterCount} 个筛选条件</span>
+              )}
+            </div>
+            <button
+              type="button"
+              className="audit-filter-toggle"
+              onClick={toggleFilterCollapsed}
+              aria-expanded={!filterCollapsed}
+              aria-label={filterCollapsed ? '展开筛选' : '收起筛选'}
+            >
+              <span>{filterCollapsed ? '展开' : '收起'}</span>
+              {filterCollapsed ? <DownOutlined className="audit-filter-chevron" /> : <UpOutlined className="audit-filter-chevron" />}
+            </button>
+          </div>
+          <div className={`audit-filter-body${filterCollapsed ? ' audit-filter-body-collapsed' : ''}`}>
+            <Form
+              form={form}
+              layout="vertical"
+              className="audit-filter-form"
+              onValuesChange={(_, allValues) => debouncedSearch(allValues)}
+            >
+              <div className="audit-filter-grid">
+                <Form.Item name="applicantUsername" label="申请人" className="audit-filter-field">
+                  <Input placeholder="用户名，如 employee_a" allowClear disabled={filtersDisabled} />
+                </Form.Item>
+                <Form.Item name="applicantId" label="申请人 ID" className="audit-filter-field">
+                  <Input placeholder="UUID" allowClear disabled={filtersDisabled} />
+                </Form.Item>
+                <Form.Item name="category" label="资产分类" className="audit-filter-field">
+                  <Select
+                    allowClear
+                    placeholder="全部"
+                    disabled={filtersDisabled}
+                    options={Object.entries(ASSET_CATEGORY_LABELS).map(([value, label]) => ({ value, label }))}
+                  />
+                </Form.Item>
+                <Form.Item name="status" label="单据状态" className="audit-filter-field">
+                  <Select
+                    allowClear
+                    placeholder="全部"
+                    disabled={filtersDisabled}
+                    options={Object.entries(APPLICATION_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
+                  />
+                </Form.Item>
+                <Form.Item name="timeRange" label="申请时间" className="audit-filter-field">
+                  <RangePicker allowEmpty disabled={filtersDisabled} style={{ width: '100%' }} />
+                </Form.Item>
+                <div className="audit-filter-actions">
+                  <Button
+                    icon={<ReloadOutlined />}
+                    disabled={filtersDisabled}
+                    onClick={() => {
+                      form.resetFields();
+                      setPage(1);
+                      fetchLogs({}, 1);
+                    }}
+                  >
+                    重置
+                  </Button>
+                </div>
+              </div>
+            </Form>
+          </div>
         </div>
         <Spin spinning={loading}>
           <div className="table-scroll-wrapper">
